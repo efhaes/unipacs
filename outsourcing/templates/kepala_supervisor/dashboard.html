@@ -389,23 +389,208 @@
 .spv-absen-name { color: var(--clr-text-secondary); font-weight: 500; }
 .spv-absen-count { color: var(--clr-text-muted); }
 
-/* ── RESPONSIVE ───────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════
+   RESPONSIVE — Mobile First
+   Breakpoints: 480 / 640 / 768 / 992 / 1200
+══════════════════════════════════════════════════════ */
+
+/* ── Base mobile (semua layar) ─────────────────────── */
+.ks-wrap { padding: 0 0 2rem; }
+
+/* ── HEADER ─────────────────────────────────────────── */
+@media (max-width: 640px) {
+    .ks-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+    .ks-header-left h5 { font-size: 0.95rem; }
+    .filter-form {
+        justify-content: space-between;
+        width: 100%;
+    }
+    .filter-form select {
+        flex: 1;
+        min-width: 0;
+        font-size: 12px;
+    }
+    .filter-form button {
+        white-space: nowrap;
+        padding: 4px 12px;
+    }
+}
+
+/* ── STAT GRID ──────────────────────────────────────── */
+.stat-grid { grid-template-columns: repeat(4, 1fr); }
+
 @media (max-width: 991px) {
     .stat-grid { grid-template-columns: repeat(2, 1fr); }
-    .spv-bars  { width: 110px; }
 }
-@media (max-width: 767px) {
-    .spv-bars  { display: none; }
-    .spv-pct   { display: none; }
-    .ks-header { flex-direction: column; align-items: stretch; }
-    .filter-form { justify-content: space-between; }
-    .cb-stats  { justify-content: center; }
-    .completion-banner { gap: 14px; }
-}
+
 @media (max-width: 480px) {
-    .stat-grid  { grid-template-columns: repeat(2, 1fr); }
-    .stat-value { font-size: 1.45rem; }
-    .cb-pct     { font-size: 13px; }
+    .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .stat-card  { padding: 12px 10px; gap: 8px; }
+    .stat-icon  { width: 32px; height: 32px; font-size: 0.85rem; }
+    .stat-value { font-size: 1.4rem; }
+    .stat-label { font-size: 10px; }
+    .stat-sub   { font-size: 10px; }
+}
+
+/* ── COMPLETION BANNER ──────────────────────────────── */
+@media (max-width: 768px) {
+    .completion-banner {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 12px;
+        padding: 14px;
+    }
+    .cb-info { text-align: center; }
+    .cb-stats { justify-content: center; gap: 20px; }
+}
+
+@media (max-width: 480px) {
+    .cb-donut-wrap { width: 64px; height: 64px; }
+    .cb-pct        { font-size: 13px; }
+    .cb-label      { font-size: 12px; }
+    .cb-sub        { font-size: 11px; }
+    .cb-stat-val   { font-size: 1.3rem; }
+    .cb-stat-label { font-size: 10px; }
+    .cb-stats      { gap: 14px; }
+}
+
+/* ── PROGRESS PER SPV ───────────────────────────────── */
+@media (max-width: 991px) {
+    .spv-bars { width: 110px; }
+}
+
+@media (max-width: 768px) {
+    .spv-bars { display: none; }
+    .spv-pct  { display: none; }
+    .spv-row  { padding: 10px 12px; }
+    .spv-name { font-size: 12.5px; }
+    .spv-meta { font-size: 10.5px; }
+}
+
+@media (max-width: 480px) {
+    .spv-avatar { width: 28px; height: 28px; font-size: 10px; }
+    .spv-meta   { font-size: 10px; }
+}
+
+/* ── ROW Bootstrap col ──────────────────────────────── */
+/* Paksa stack di mobile */
+@media (max-width: 768px) {
+    .row.g-3 > [class*="col-lg"] {
+        width: 100% !important;
+        max-width: 100% !important;
+        flex: 0 0 100% !important;
+    }
+}
+
+/* ── NOTIFIKASI ─────────────────────────────────────── */
+@media (max-width: 480px) {
+    .notif-row  { padding: 10px 12px; gap: 8px; }
+    .notif-icon { width: 28px; height: 28px; font-size: 13px; }
+    .notif-text { font-size: 12px; }
+    .notif-meta { font-size: 10.5px; }
+}
+
+/* ── TABLE PERUSAHAAN ───────────────────────────────── */
+@media (max-width: 640px) {
+    /* Sembunyikan kolom Jenis Jasa di layar sempit */
+    .ks-table thead th:nth-child(3),
+    .ks-table tbody td:nth-child(3) { display: none; }
+
+    .ks-table thead th { padding: 8px 10px; font-size: 10px; }
+    .ks-table tbody td { padding: 8px 10px; font-size: 12px; }
+    .td-name           { font-size: 12.5px; }
+    .td-muted          { font-size: 11.5px; }
+}
+
+@media (max-width: 400px) {
+    /* Sembunyikan juga kolom Supervisor di layar sangat sempit */
+    .ks-table thead th:nth-child(2),
+    .ks-table tbody td:nth-child(2) { display: none; }
+}
+
+/* ── ABSENSI GRID ───────────────────────────────────── */
+@media (max-width: 991px) {
+    .absen-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 480px) {
+    .absen-grid  { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .absen-item  { padding: 8px 4px; }
+    .absen-count { font-size: 1.15rem; }
+    .absen-label { font-size: 10px; }
+    .absen-dot   { width: 6px; height: 6px; }
+}
+
+/* ── LAPORAN TERBARU ────────────────────────────────── */
+@media (max-width: 480px) {
+    .lap-row  { padding: 9px 12px; gap: 8px; }
+    .lap-name { font-size: 12.5px; }
+    .lap-sub  { font-size: 10.5px; }
+    .lap-date { font-size: 10.5px; }
+}
+
+/* ── ITEM HARI INI ──────────────────────────────────── */
+@media (max-width: 480px) {
+    .item-row  { padding: 7px 12px; }
+    .item-name { font-size: 12px; }
+    .item-sub  { font-size: 10.5px; }
+    .item-time { font-size: 10.5px; }
+}
+
+/* ── KS CARD HEAD ───────────────────────────────────── */
+@media (max-width: 480px) {
+    .ks-card-head   { padding: 8px 12px; }
+    .ks-card-title  { font-size: 10px; }
+    .ks-card-link   { font-size: 11px; }
+    .ks-card-body   { padding: 12px; }
+}
+
+/* ── CHART DONUT — pastikan tidak overflow ──────────── */
+@media (max-width: 480px) {
+    #donutCompletion { width: 64px !important; height: 64px !important; }
+}
+
+/* ── LEGEND ─────────────────────────────────────────── */
+@media (max-width: 480px) {
+    .legend-row  { font-size: 11.5px; gap: 6px; }
+    .legend-dot  { width: 7px; height: 7px; }
+    .legend-val  { font-size: 12px; }
+}
+
+/* ── BADGE ──────────────────────────────────────────── */
+@media (max-width: 480px) {
+    .ks-badge { font-size: 10px; padding: 2px 7px; }
+}
+
+/* ── SPV ABSEN PER ROW ──────────────────────────────── */
+@media (max-width: 480px) {
+    .spv-absen-name  { font-size: 11.5px; }
+    .spv-absen-count { font-size: 11.5px; }
+}
+
+/* ── TABLET LANDSCAPE (768–991) ─────────────────────── */
+@media (min-width: 768px) and (max-width: 991px) {
+    .stat-grid { grid-template-columns: repeat(4, 1fr); }
+
+    .col-lg-8 { width: 58% !important; flex: 0 0 58% !important; max-width: 58% !important; }
+    .col-lg-4 { width: 42% !important; flex: 0 0 42% !important; max-width: 42% !important; }
+    .col-lg-7 { width: 55% !important; flex: 0 0 55% !important; max-width: 55% !important; }
+    .col-lg-5 { width: 45% !important; flex: 0 0 45% !important; max-width: 45% !important; }
+
+    .completion-banner {
+        flex-wrap: nowrap;
+        align-items: center;
+        text-align: left;
+    }
+    .cb-info { text-align: left; }
+
+    .spv-bars { display: flex; width: 100px; }
+    .spv-pct  { display: block; }
 }
 </style>
 {% endblock %}

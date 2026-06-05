@@ -18,10 +18,17 @@ def laporan_list(request):
     supervisor = _get_supervisor(request)
     q          = request.GET.get('q', '').strip()
     status     = request.GET.get('status', '').strip()
+    aktif      = request.GET.get('aktif', 'true').strip()  # default aktif
 
     laporan = LaporanKegiatan.objects.filter(
         supervisor=supervisor
     ).select_related('perusahaan', 'jenis_jasa', 'area').order_by('-tanggal_laporan')
+
+    # Filter aktif/nonaktif
+    if aktif == 'false':
+        laporan = laporan.filter(is_active=False)
+    else:
+        laporan = laporan.filter(is_active=True)
 
     if q:
         laporan = laporan.filter(
@@ -35,6 +42,7 @@ def laporan_list(request):
         'laporan_list'  : laporan,
         'status_choices': StatusLaporan.choices,
         'filter_status' : status,
+        'filter_aktif'  : aktif,
         'q'             : q,
         'supervisor'    : supervisor,
         'page_title'    : 'Laporan Kegiatan Saya',
@@ -190,3 +198,21 @@ def laporan_kirim(request, pk):
         'page_title': f'Kirim Laporan — {laporan.nama_laporan}',
     }
     return render(request, 'supervisor/laporan/confirm_kirim.html', context)
+
+
+@supervisor_or_kepala_required
+def laporan_toggle_aktif(request, pk):
+    supervisor = _get_supervisor(request)
+    laporan    = get_object_or_404(LaporanKegiatan, pk=pk, supervisor=supervisor)
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Method tidak diizinkan.'}, status=405)
+
+    laporan.is_active = not laporan.is_active
+    laporan.save(update_fields=['is_active'])
+
+    return JsonResponse({
+        'success'  : True,
+        'is_active': laporan.is_active,
+        'message'  : f'Laporan "{laporan.nama_laporan}" berhasil {"diaktifkan" if laporan.is_active else "dinonaktifkan"}.',
+    })

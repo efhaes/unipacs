@@ -99,9 +99,10 @@
   <input type="hidden" name="bulan" value="{{ bulan_dipilih }}">
   <select name="status" class="form-select form-select-sm" style="max-width:160px;">
     <option value="">Semua Status</option>
-    <option value="terjadwal"   {% if filter_status == 'terjadwal' %}selected{% endif %}>Terjadwal</option>
-    <option value="on_progress" {% if filter_status == 'on_progress' %}selected{% endif %}>On Progress</option>
-    <option value="selesai"     {% if filter_status == 'selesai' %}selected{% endif %}>Selesai</option>
+    <option value="terjadwal"          {% if filter_status == 'terjadwal' %}selected{% endif %}>Terjadwal</option>
+    <option value="on_progress"        {% if filter_status == 'on_progress' %}selected{% endif %}>On Progress</option>
+    <option value="menunggu_approval"  {% if filter_status == 'menunggu_approval' %}selected{% endif %}>Menunggu Approval</option>
+    <option value="selesai"            {% if filter_status == 'selesai' %}selected{% endif %}>Selesai</option>
   </select>
   <button class="btn btn-sm btn-secondary">Filter</button>
   {% if filter_status %}
@@ -154,28 +155,32 @@
               <span class="badge bg-secondary">Terjadwal</span>
             {% elif item.status == 'on_progress' %}
               <span class="badge bg-warning text-dark">On Progress</span>
+            {% elif item.status == 'menunggu_approval' %}
+              <span class="badge bg-info text-dark">Menunggu Approval</span>
             {% elif item.status == 'selesai' %}
               <span class="badge bg-success">Selesai</span>
             {% endif %}
           </td>
           <td data-label="Aksi">
-            {% if item.status != 'selesai' %}
-              {% if item.jam_mulai and item.jam_selesai %}
-                <a href="{% url 'staff_item_update' item.pk %}" class="btn btn-primary btn-sm">
-                  <i class="bi bi-pencil"></i> Kerjakan
-                </a>
-              {% else %}
-                <button type="button"
-                    class="btn btn-primary btn-sm btn-update"
-                    data-item-pk="{{ item.pk }}"
-                    data-item-url="{% url 'staff_item_update' item.pk %}"
-                    data-jam-mulai="{{ item.jam_mulai|date:'H:i'|default:'' }}"
-                    data-jam-selesai="{{ item.jam_selesai|date:'H:i'|default:'' }}">
-                  <i class="bi bi-clock"></i> Isi Jam
-                </button>
+              {% if item.status == 'terjadwal' or item.status == 'on_progress' %}
+                {% if item.jam_mulai and item.jam_selesai %}
+                  <a href="{% url 'staff_item_update' item.pk %}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-pencil"></i> Kerjakan
+                  </a>
+                {% else %}
+                  <button type="button"
+                      class="btn btn-primary btn-sm btn-update"
+                      data-item-pk="{{ item.pk }}"
+                      data-item-url="{% url 'staff_item_update' item.pk %}"
+                      data-jam-mulai="{{ item.jam_mulai|date:'H:i'|default:'' }}"
+                      data-jam-selesai="{{ item.jam_selesai|date:'H:i'|default:'' }}">
+                    <i class="bi bi-clock"></i> Isi Jam
+                  </button>
+                {% endif %}
+              {% elif item.status == 'menunggu_approval' %}
+                <span class="badge bg-info text-dark">⏳ Menunggu Review</span>
               {% endif %}
-            {% endif %}
-          </td>
+            </td>
         </tr>
         {% empty %}
         <tr>

@@ -20,7 +20,7 @@
         <table class="table mb-0">
             <thead>
                 <tr>
-                    <th>#</th>
+                    <th>No</th>
                     <th>Supervisor</th>
                     <th>Perusahaan</th>
                     <th>Jenis Jasa</th>
@@ -59,29 +59,49 @@
 </div>
 
 <!-- Mobile Cards -->
+<!-- Mobile Cards -->
 <div class="mobile-cards">
     {% for p in penugasan_list %}
-    <div class="m-card">
+    <div class="m-card m-card--block">   {# ← tambah m-card--block #}
         <div class="m-card-top">
             <div class="m-card-name">{{ p.supervisor.nama_lengkap|default:p.supervisor.username }}</div>
-            {% if p.is_active %}<span class="status-badge badge-aktif">Aktif</span>
-            {% else %}<span class="status-badge badge-nonaktif">Nonaktif</span>{% endif %}
+            {% if p.is_active %}
+                <span class="status-badge badge-aktif">Aktif</span>
+            {% else %}
+                <span class="status-badge badge-nonaktif">Nonaktif</span>
+            {% endif %}
         </div>
         <div class="m-card-meta">
-            <div class="m-card-meta-item">Perusahaan<span>{{ p.perusahaan.nama_perusahaan }}</span></div>
-            <div class="m-card-meta-item">Jenis Jasa<span>{{ p.jenis_jasa.nama_jasa }}</span></div>
-            <div class="m-card-meta-item">Kepala Supervisor<span>{{ p.kepala_supervisor.nama_lengkap|default:p.kepala_supervisor.username }}</span></div>
+            <div class="m-card-meta-item">
+                Perusahaan
+                <span>{{ p.perusahaan.nama_perusahaan }}</span>
+            </div>
+            <div class="m-card-meta-item">
+                Jenis Jasa
+                <span>{{ p.jenis_jasa.nama_jasa }}</span>
+            </div>
+            <div class="m-card-meta-item">
+                Kepala Supervisor
+                <span>{{ p.kepala_supervisor.nama_lengkap|default:p.kepala_supervisor.username }}</span>
+            </div>
         </div>
         <div class="m-card-footer">
             <div class="m-card-actions">
-                <a href="{% url 'kepala_penugasan_edit' p.pk %}" class="action-btn edit"><i class="bi bi-pencil"></i></a>
-                <button class="action-btn toggle" data-bs-toggle="modal" data-bs-target="#modalToggle{{ p.pk }}"><i class="bi bi-power"></i></button>
+                <a href="{% url 'kepala_penugasan_edit' p.pk %}" class="action-btn edit">
+                    <i class="bi bi-pencil"></i>
+                </a>
+                <button class="action-btn toggle"
+                        data-bs-toggle="modal"
+                        data-bs-target="#modalToggle{{ p.pk }}">
+                    <i class="bi bi-power"></i>
+                </button>
             </div>
         </div>
     </div>
     {% empty %}
     <div class="text-center text-muted py-5">
-        <i class="bi bi-people" style="font-size:2rem;opacity:0.3;display:block;margin-bottom:8px;"></i>Belum ada penugasan.
+        <i class="bi bi-people" style="font-size:2rem;opacity:0.3;display:block;margin-bottom:8px;"></i>
+        Belum ada penugasan.
     </div>
     {% endfor %}
 </div>

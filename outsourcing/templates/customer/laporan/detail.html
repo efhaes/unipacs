@@ -30,6 +30,9 @@
             {% elif laporan.status == 'dikirim_customer' %}
                 <span class="status-pill status-dikirim">Dikirim ke Customer</span>
             {% endif %}
+            {% if stats.semua_selesai %}
+                <span class="status-pill status-selesai">✓ Semua Selesai</span>
+            {% endif %}
             <span>{{ laporan.tanggal_laporan|date:"d M Y" }}</span>
             <span>·</span>
             <span>{{ laporan.perusahaan.nama_perusahaan }}</span>
@@ -70,6 +73,16 @@
         <div class="stat-mini-body">
             <div class="stat-mini-label">On Progress</div>
             <div class="stat-mini-value">{{ stats.on_progress }}</div>
+        </div>
+    </div>
+    <!-- ── Stat baru: Menunggu Approval ── -->
+    <div class="stat-mini">
+        <div class="stat-mini-icon" style="background:rgba(14,165,233,0.1);color:#38bdf8;">
+            <i class="bi bi-hourglass-split"></i>
+        </div>
+        <div class="stat-mini-body">
+            <div class="stat-mini-label">Menunggu Approval</div>
+            <div class="stat-mini-value">{{ stats.menunggu_approval }}</div>
         </div>
     </div>
     <div class="stat-mini">
@@ -158,7 +171,7 @@
 
 <div class="items-grid">
     {% for item in sub_area_group.list %}
-    <div class="item-card">
+    <div class="item-card {% if item.status == 'menunggu_approval' %}item-card-pending{% endif %}">
 
         <!-- Photos -->
         {% if item.foto_on_progress or item.foto_after %}
@@ -217,6 +230,8 @@
                         <span class="item-status ist-terjadwal">Terjadwal</span>
                     {% elif item.status == 'on_progress' %}
                         <span class="item-status ist-progress">On Progress</span>
+                    {% elif item.status == 'menunggu_approval' %}
+                        <span class="item-status ist-waiting">⏳ Menunggu Approval</span>
                     {% elif item.status == 'selesai' %}
                         <span class="item-status ist-selesai">Selesai</span>
                     {% endif %}
@@ -246,8 +261,24 @@
                     <i class="bi bi-chat-left-text" style="margin-right:4px;"></i>{{ item.catatan_staff }}
                 </div>
             {% endif %}
-        </div>
 
+            <!-- ── Tombol Approve (hanya muncul saat menunggu_approval) ── -->
+            {% if item.status == 'menunggu_approval' %}
+            <div class="item-approve-wrap">
+                <div class="approve-hint">
+                    <i class="bi bi-info-circle"></i>
+                    Periksa foto hasil pekerjaan di atas sebelum memberikan persetujuan.
+                </div>
+                <button type="button"
+                        class="btn-approve"
+                        data-item-pk="{{ item.pk }}"
+                        data-item-name="{{ item.nama_item }}">
+                    <i class="bi bi-check-circle-fill"></i> Setujui Pekerjaan
+                </button>
+            </div>
+            {% endif %}
+
+        </div>
     </div>
     {% endfor %}
 </div>
@@ -260,11 +291,39 @@
 </div>
 {% endif %}
 
+<!-- ── Modal Konfirmasi Approve ── -->
+<div class="modal fade" id="approveModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:400px;">
+        <div class="modal-content approve-modal-content">
+            <div class="approve-modal-icon">
+                <i class="bi bi-patch-check-fill"></i>
+            </div>
+            <div class="approve-modal-title">Setujui Pekerjaan?</div>
+            <div class="approve-modal-desc">
+                Anda akan menyetujui pekerjaan:<br>
+                <strong id="approveItemName"></strong>
+            </div>
+            <div class="approve-modal-desc" style="color:#94a3b8;font-size:12px;margin-top:4px;">
+                Status pekerjaan akan berubah menjadi <strong>Selesai</strong> dan tidak dapat dibatalkan.
+            </div>
+            <form id="approveForm" method="post" action="">
+                {% csrf_token %}
+                <div class="approve-modal-actions">
+                    <button type="button" class="btn-approve-batal" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn-approve-confirm">
+                        <i class="bi bi-check-circle-fill"></i> Ya, Setujui
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// Lightbox
+// ── Lightbox ──────────────────────────────────────────────────────────────
 const lightbox      = document.getElementById('lightbox');
 const lightboxImg   = document.getElementById('lightboxImg');
 const lightboxClose = document.getElementById('lightboxClose');
@@ -280,5 +339,22 @@ document.querySelectorAll('.lightbox-trigger').forEach(el => {
 lightboxClose.addEventListener('click', () => lightbox.classList.remove('open'));
 lightbox.addEventListener('click', e => { if (e.target === lightbox) lightbox.classList.remove('open'); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') lightbox.classList.remove('open'); });
+
+// ── Approve Modal ─────────────────────────────────────────────────────────
+const approveModal    = new bootstrap.Modal(document.getElementById('approveModal'));
+const approveForm     = document.getElementById('approveForm');
+const approveItemName = document.getElementById('approveItemName');
+
+document.querySelectorAll('.btn-approve').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const pk   = this.dataset.itemPk;
+        const name = this.dataset.itemName;
+
+        approveItemName.textContent = name;
+        // URL approve item — sesuaikan dengan nama url pattern kamu
+        approveForm.action = '/customer/item/' + pk + '/approve/';
+        approveModal.show();
+    });
+});
 </script>
 {% endblock %}

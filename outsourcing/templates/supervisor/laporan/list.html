@@ -2,6 +2,24 @@
 
 {% block extra_css %}
 <style>
+
+/* ── Nonaktif row indicator ── */
+.row-nonaktif td { opacity: 0.5; }
+.badge-nonaktif {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 20px;
+    background: rgba(239,68,68,0.1);
+    color: #f87171;
+    border: 1px solid rgba(239,68,68,0.2);
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
 /* ── Page Header ── */
 .page-header {
     display: flex;
@@ -148,6 +166,12 @@
 }
 .action-btn.done:hover { background: rgba(34,197,94,0.1); border-color: rgba(34,197,94,0.4); }
 
+.btn-nonaktif { color: #f87171; border-color: rgba(239,68,68,0.2); }
+.btn-nonaktif:hover { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.4); }
+
+.btn-aktifkan { color: #4ade80; border-color: rgba(34,197,94,0.2); }
+.btn-aktifkan:hover { background: rgba(34,197,94,0.1); border-color: rgba(34,197,94,0.4); }
+
 /* ── Mobile Cards ── */
 @media (max-width: 640px) {
     .table-card { display: none; }
@@ -198,11 +222,13 @@
         margin-top: 4px;
     }
     .laporan-card-actions { display: flex; gap: 6px; }
+    .laporan-card-item.nonaktif { opacity: 0.6; }
 }
 @media (min-width: 641px) { .laporan-cards { display: none; } }
 
-/* ── Modal Selesai ── */
-#modalSelesai .modal-content {
+/* ── Modal Shared ── */
+#modalSelesai .modal-content,
+#modalToggleAktif .modal-content {
     border-radius: 16px;
     overflow: hidden;
     background: #0d1629;
@@ -210,7 +236,7 @@
     box-shadow: 0 20px 60px rgba(0,0,0,0.6);
     color: var(--clr-text-primary);
 }
-#modalSelesai .modal-body-center {
+.modal-body-center {
     text-align: center;
     padding: 0.5rem 1.5rem 0;
 }
@@ -265,6 +291,11 @@
 .btn-modal-confirm:hover { opacity: 0.88; transform: translateY(-1px); }
 .btn-modal-confirm:disabled { opacity: 0.6; transform: none; cursor: not-allowed; }
 
+.btn-modal-confirm.danger {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    box-shadow: 0 4px 14px rgba(239,68,68,0.3);
+}
+
 /* ── Toast ── */
 .toast-notif {
     position: fixed;
@@ -294,10 +325,7 @@
 }
 
 /* ── Btn overrides ── */
-.btn-primary {
-    background: var(--clr-accent);
-    border-color: var(--clr-accent);
-}
+.btn-primary { background: var(--clr-accent); border-color: var(--clr-accent); }
 .btn-primary:hover { background: #4f46e5; border-color: #4f46e5; }
 .btn-secondary { background: rgba(255,255,255,0.07); border-color: var(--clr-border); color: var(--clr-text-secondary); }
 .btn-secondary:hover { background: rgba(255,255,255,0.1); color: var(--clr-text-primary); }
@@ -309,7 +337,12 @@
 {% block content %}
 
 <div class="page-header">
-    <h5>Laporan Kegiatan Saya</h5>
+    <h5>
+        Laporan Kegiatan Saya
+        {% if filter_aktif == 'false' %}
+            <span class="badge-nonaktif"><i class="bi bi-eye-slash"></i> Menampilkan Nonaktif</span>
+        {% endif %}
+    </h5>
     <a href="{% url 'supervisor_laporan_create' %}" class="btn btn-primary btn-sm">
         <i class="bi bi-plus-lg"></i> Buat Laporan
     </a>
@@ -321,6 +354,8 @@
         <input type="text" name="q" value="{{ q }}"
             class="form-control form-control-sm" style="min-width:160px;flex:1;"
             placeholder="Cari laporan atau perusahaan...">
+
+        <!-- Filter Status Laporan -->
         <select name="status" class="form-select form-select-sm" style="max-width:160px;">
             <option value="">Semua Status</option>
             {% for val, label in status_choices %}
@@ -329,8 +364,15 @@
                 </option>
             {% endfor %}
         </select>
+
+        <!-- Filter Aktif / Nonaktif -->
+        <select name="aktif" class="form-select form-select-sm" style="max-width:140px;">
+            <option value="true"  {% if filter_aktif != 'false' %}selected{% endif %}>Aktif</option>
+            <option value="false" {% if filter_aktif == 'false' %}selected{% endif %}>Nonaktif</option>
+        </select>
+
         <button class="btn btn-sm btn-secondary">Filter</button>
-        {% if q or filter_status %}
+        {% if q or filter_status or filter_aktif == 'false' %}
             <a href="?" class="btn btn-sm btn-outline-secondary">Reset</a>
         {% endif %}
     </form>
@@ -342,7 +384,7 @@
         <table class="table mb-0">
             <thead>
                 <tr>
-                    <th>#</th>
+                    <th>No</th>
                     <th>Nama Laporan</th>
                     <th>Perusahaan</th>
                     <th>Jasa</th>
@@ -354,12 +396,15 @@
             </thead>
             <tbody>
                 {% for l in laporan_list %}
-                <tr>
+                <tr data-laporan-pk="{{ l.pk }}" class="{% if not l.is_active %}row-nonaktif{% endif %}">
                     <td class="cell-muted">{{ forloop.counter }}</td>
                     <td>
                         <a href="{% url 'supervisor_laporan_detail' l.pk %}" class="laporan-link">
                             {{ l.nama_laporan }}
                         </a>
+                        {% if not l.is_active %}
+                            <span class="badge-nonaktif"><i class="bi bi-eye-slash"></i> Nonaktif</span>
+                        {% endif %}
                     </td>
                     <td class="cell-muted">{{ l.perusahaan.nama_perusahaan }}</td>
                     <td class="cell-muted">{{ l.jenis_jasa.nama_jasa }}</td>
@@ -379,7 +424,7 @@
                             <a href="{% url 'supervisor_laporan_detail' l.pk %}" class="action-btn view">
                                 <i class="bi bi-eye"></i>
                             </a>
-                            {% if l.status == 'draft' %}
+                            {% if l.status == 'draft' and l.is_active %}
                             <a href="{% url 'supervisor_laporan_edit' l.pk %}" class="action-btn edit">
                                 <i class="bi bi-pencil"></i>
                             </a>
@@ -390,6 +435,17 @@
                                 <i class="bi bi-check-lg"></i> Selesai
                             </button>
                             {% endif %}
+                            <button class="action-btn btn-toggle-aktif {% if l.is_active %}btn-nonaktif{% else %}btn-aktifkan{% endif %}"
+                                data-pk="{{ l.pk }}"
+                                data-nama="{{ l.nama_laporan }}"
+                                data-is-active="{{ l.is_active|yesno:'true,false' }}"
+                                data-url="{% url 'supervisor_laporan_toggle_aktif' l.pk %}">
+                                {% if l.is_active %}
+                                    <i class="bi bi-eye-slash"></i>
+                                {% else %}
+                                    <i class="bi bi-eye"></i>
+                                {% endif %}
+                            </button>
                         </div>
                     </td>
                 </tr>
@@ -397,7 +453,11 @@
                 <tr>
                     <td colspan="8" class="text-center py-5" style="color:var(--clr-text-muted);">
                         <i class="bi bi-file-earmark-text" style="font-size:2rem;opacity:0.3;display:block;margin-bottom:8px;"></i>
-                        Belum ada laporan.
+                        {% if filter_aktif == 'false' %}
+                            Tidak ada laporan nonaktif.
+                        {% else %}
+                            Belum ada laporan.
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -409,10 +469,13 @@
 <!-- ── Mobile: Cards ── -->
 <div class="laporan-cards">
     {% for l in laporan_list %}
-    <div class="laporan-card-item">
+    <div class="laporan-card-item {% if not l.is_active %}nonaktif{% endif %}" data-laporan-pk="{{ l.pk }}">
         <div class="laporan-card-top">
             <a href="{% url 'supervisor_laporan_detail' l.pk %}" class="laporan-card-name">
                 {{ l.nama_laporan }}
+                {% if not l.is_active %}
+                    <span class="badge-nonaktif"><i class="bi bi-eye-slash"></i> Nonaktif</span>
+                {% endif %}
             </a>
             {% if l.status == 'draft' %}
                 <span class="status-badge status-draft">Draft</span>
@@ -433,7 +496,7 @@
                 <a href="{% url 'supervisor_laporan_detail' l.pk %}" class="action-btn view">
                     <i class="bi bi-eye"></i>
                 </a>
-                {% if l.status == 'draft' %}
+                {% if l.status == 'draft' and l.is_active %}
                 <a href="{% url 'supervisor_laporan_edit' l.pk %}" class="action-btn edit">
                     <i class="bi bi-pencil"></i>
                 </a>
@@ -444,13 +507,28 @@
                     <i class="bi bi-check-lg"></i> Selesai
                 </button>
                 {% endif %}
+                <button class="action-btn btn-toggle-aktif {% if l.is_active %}btn-nonaktif{% else %}btn-aktifkan{% endif %}"
+                    data-pk="{{ l.pk }}"
+                    data-nama="{{ l.nama_laporan }}"
+                    data-is-active="{{ l.is_active|yesno:'true,false' }}"
+                    data-url="{% url 'supervisor_laporan_toggle_aktif' l.pk %}">
+                    {% if l.is_active %}
+                        <i class="bi bi-eye-slash"></i>
+                    {% else %}
+                        <i class="bi bi-eye"></i>
+                    {% endif %}
+                </button>
             </div>
         </div>
     </div>
     {% empty %}
     <div class="text-center py-5" style="color:var(--clr-text-muted);">
         <i class="bi bi-file-earmark-text" style="font-size:2rem;opacity:0.3;display:block;margin-bottom:8px;"></i>
-        Belum ada laporan.
+        {% if filter_aktif == 'false' %}
+            Tidak ada laporan nonaktif.
+        {% else %}
+            Belum ada laporan.
+        {% endif %}
     </div>
     {% endfor %}
 </div>
@@ -484,10 +562,66 @@
     </div>
 </div>
 
+<!-- Modal Konfirmasi Toggle Aktif -->
+<div class="modal fade" id="modalToggleAktif" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
+        <div class="modal-content">
+            <div style="display:flex;justify-content:flex-end;padding:12px 16px 0;">
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body-center">
+                <div id="toggleModalIconWrap" style="width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.5rem;margin:0 auto 1rem;">
+                    <i id="toggleModalIcon"></i>
+                </div>
+                <div id="toggleModalTitle" style="font-size:15px;font-weight:600;color:var(--clr-text-primary);margin-bottom:6px;"></div>
+                <div id="toggleModalDesc" style="font-size:13px;color:var(--clr-text-muted);line-height:1.6;"></div>
+            </div>
+            <div class="modal-footer-custom">
+                <button type="button" class="btn-modal-cancel" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn-modal-confirm" id="btnKonfirmasiToggle">
+                    <i class="bi bi-check-lg"></i> Konfirmasi
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
+// ── FIX MOBILE: Pindahkan modal ke <body> ────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
+    ['modalSelesai', 'modalToggleAktif'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el && el.parentElement !== document.body) {
+            document.body.appendChild(el);
+        }
+    });
+
+    // ── FIX iOS Safari: backdrop intercept touch events ──────────────────
+    // Setiap kali modal muncul, pastikan backdrop z-index di bawah modal
+    document.addEventListener('show.bs.modal', function () {
+        // Tunggu backdrop dibuat oleh Bootstrap
+        setTimeout(function () {
+            var backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) {
+                backdrop.style.zIndex = '1040';
+                // pointer-events: none agar touch bisa tembus ke modal di atasnya
+                backdrop.style.pointerEvents = 'none';
+            }
+            // Pastikan modal dialog bisa menerima touch
+            document.querySelectorAll('.modal.show .modal-dialog').forEach(function (d) {
+                d.style.pointerEvents = 'auto';
+            });
+            document.querySelectorAll('.modal.show .modal-content').forEach(function (c) {
+                c.style.pointerEvents = 'auto';
+            });
+        }, 50);
+    });
+});
+
+// ── Selesai ───────────────────────────────────────────────────────────────
 let targetPk  = null;
 let targetUrl = null;
 
@@ -509,7 +643,7 @@ document.getElementById('btnKonfirmasiSelesai').addEventListener('click', functi
     fetch(targetUrl, {
         method: 'POST',
         headers: {
-            'X-CSRFToken': '{{ csrf_token }}',
+            'X-CSRFToken'     : '{{ csrf_token }}',
             'X-Requested-With': 'XMLHttpRequest',
         },
     })
@@ -517,14 +651,11 @@ document.getElementById('btnKonfirmasiSelesai').addEventListener('click', functi
     .then(data => {
         bootstrap.Modal.getInstance(document.getElementById('modalSelesai')).hide();
         if (data.success) {
-            document.querySelectorAll(`.btn-selesai[data-pk="${targetPk}"]`).forEach(el => {
-                const row = el.closest('tr') || el.closest('.laporan-card-item');
-                if (row) {
-                    row.querySelectorAll('.status-badge').forEach(b => {
-                        b.outerHTML = '<span class="status-badge status-selesai">Selesai</span>';
-                    });
-                    row.querySelectorAll('.action-btn.edit, .action-btn.done').forEach(e => e.remove());
-                }
+            document.querySelectorAll(`[data-laporan-pk="${targetPk}"]`).forEach(row => {
+                row.querySelectorAll('.status-badge').forEach(b => {
+                    b.outerHTML = '<span class="status-badge status-selesai">Selesai</span>';
+                });
+                row.querySelectorAll('.action-btn.edit, .action-btn.done').forEach(e => e.remove());
             });
             showToast('success', data.message);
         } else {
@@ -540,9 +671,87 @@ document.getElementById('btnKonfirmasiSelesai').addEventListener('click', functi
     });
 });
 
+// ── Toggle Aktif ──────────────────────────────────────────────────────────
+let toggleTargetUrl = '';
+let toggleTargetPk  = '';
+let toggleIsActive  = false;
+
+document.querySelectorAll('.btn-toggle-aktif').forEach(btn => {
+    btn.addEventListener('click', function () {
+        toggleTargetUrl = this.dataset.url;
+        toggleTargetPk  = this.dataset.pk;
+        toggleIsActive  = this.dataset.isActive === 'true';
+        const nama      = this.dataset.nama;
+
+        const iconWrap   = document.getElementById('toggleModalIconWrap');
+        const icon       = document.getElementById('toggleModalIcon');
+        const title      = document.getElementById('toggleModalTitle');
+        const desc       = document.getElementById('toggleModalDesc');
+        const confirmBtn = document.getElementById('btnKonfirmasiToggle');
+
+        if (toggleIsActive) {
+            iconWrap.style.background = 'rgba(239,68,68,0.12)';
+            iconWrap.style.border     = '1px solid rgba(239,68,68,0.25)';
+            icon.className            = 'bi bi-eye-slash';
+            icon.style.color          = '#f87171';
+            title.textContent         = 'Nonaktifkan Laporan?';
+            desc.innerHTML            = `Laporan <strong style="color:var(--clr-text-primary);">"${nama}"</strong> akan disembunyikan dari daftar customer.`;
+            confirmBtn.className      = 'btn-modal-confirm danger';
+        } else {
+            iconWrap.style.background = 'rgba(34,197,94,0.12)';
+            iconWrap.style.border     = '1px solid rgba(34,197,94,0.25)';
+            icon.className            = 'bi bi-eye';
+            icon.style.color          = '#4ade80';
+            title.textContent         = 'Aktifkan Laporan?';
+            desc.innerHTML            = `Laporan <strong style="color:var(--clr-text-primary);">"${nama}"</strong> akan ditampilkan kembali.`;
+            confirmBtn.className      = 'btn-modal-confirm';
+        }
+
+        new bootstrap.Modal(document.getElementById('modalToggleAktif')).show();
+    });
+});
+
+document.getElementById('btnKonfirmasiToggle').addEventListener('click', function () {
+    if (!toggleTargetUrl) return;
+    const btn = this;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Memproses...';
+
+    fetch(toggleTargetUrl, {
+        method : 'POST',
+        headers: {
+            'X-CSRFToken'     : '{{ csrf_token }}',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(res => res.json())
+    .then(data => {
+        bootstrap.Modal.getInstance(document.getElementById('modalToggleAktif')).hide();
+        if (data.success) {
+            document.querySelectorAll(`[data-laporan-pk="${toggleTargetPk}"]`).forEach(row => {
+                row.style.transition = 'opacity 0.3s';
+                row.style.opacity    = '0';
+                setTimeout(() => row.remove(), 300);
+            });
+            showToast('success', data.message);
+        } else {
+            showToast('danger', data.message || 'Gagal mengubah status.');
+        }
+    })
+    .catch(() => showToast('danger', 'Terjadi kesalahan jaringan.'))
+    .finally(() => {
+        btn.disabled    = false;
+        btn.innerHTML   = '<i class="bi bi-check-lg"></i> Konfirmasi';
+        toggleTargetUrl = '';
+        toggleTargetPk  = '';
+        toggleIsActive  = false;
+    });
+});
+
+// ── Toast ─────────────────────────────────────────────────────────────────
 function showToast(type, message) {
-    const t = document.createElement('div');
-    t.className = `toast-notif toast-${type}`;
+    const t       = document.createElement('div');
+    t.className   = `toast-notif toast-${type}`;
     t.textContent = message;
     document.body.appendChild(t);
     setTimeout(() => t.remove(), 3500);

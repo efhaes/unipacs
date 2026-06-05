@@ -526,7 +526,129 @@
 
 /* Hidden inputs */
 .hidden-input { display: none !important; }
+/* ════════════════════════════════════════════════════════════
+   KETERANGAN WRAP
+   ════════════════════════════════════════════════════════════ */
+.keterangan-wrap {
+  margin: 12px 14px 0;
+}
 
+.keterangan-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(160, 160, 192, 0.85);
+  margin-bottom: 6px;
+}
+
+.keterangan-optional {
+  font-weight: 500;
+  color: rgba(96, 96, 128, 0.65);
+  font-size: 11px;
+}
+
+.keterangan-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  color: #f0f0ff;
+  resize: none;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.18s, background 0.18s;
+}
+
+.keterangan-input:focus {
+  border-color: rgba(108, 99, 255, 0.5);
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.1);
+}
+
+.keterangan-input::placeholder {
+  color: rgba(96, 96, 128, 0.6);
+  font-size: 12px;
+}
+
+.keterangan-hint {
+  font-size: 11px;
+  color: rgba(96, 96, 128, 0.6);
+  margin-top: 5px;
+  line-height: 1.5;
+}
+
+/* ════════════════════════════════════════════════════════════
+   KETERANGAN HIGHLIGHT (animasi scroll ke textarea)
+   ════════════════════════════════════════════════════════════ */
+.keterangan-highlight {
+  border-color: rgba(245, 166, 35, 0.6) !important;
+  background: rgba(245, 166, 35, 0.06) !important;
+  box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.15) !important;
+  animation: keterangan-pulse 2s ease-out forwards;
+}
+
+@keyframes keterangan-pulse {
+  0%   { box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.4); }
+  100% { box-shadow: 0 0 0 3px rgba(245, 166, 35, 0); }
+}
+
+/* ════════════════════════════════════════════════════════════
+   DELAY NOTICE
+   ════════════════════════════════════════════════════════════ */
+.delay-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 12px 14px 0;
+  padding: 10px 12px;
+  background: rgba(245, 166, 35, 0.08);
+  border: 1px solid rgba(245, 166, 35, 0.22);
+  border-radius: 10px;
+}
+
+.dn-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.dn-text {
+  flex: 1;
+  font-size: 12px;
+  color: rgba(160, 160, 192, 0.85);
+  line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dn-text strong {
+  color: #f5a623;
+  font-weight: 700;
+}
+
+.dn-text em {
+  color: rgba(160, 160, 192, 0.65);
+  font-style: normal;
+}
+
+.dn-close {
+  background: transparent;
+  border: none;
+  color: rgba(96, 96, 128, 0.65);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.dn-close:hover {
+  color: rgba(160, 160, 192, 0.9);
+}
 /* ════════════════════════════════════════════════════════════
    RESPONSIVE
    ════════════════════════════════════════════════════════════ */

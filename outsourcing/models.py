@@ -524,6 +524,7 @@ class LaporanKegiatan(models.Model):
         choices=StatusLaporan.choices,
         default=StatusLaporan.DRAFT,
     )
+    is_active       = models.BooleanField(default=True,)
     catatan         = models.TextField(blank=True)
     dibuat_pada     = models.DateTimeField(auto_now_add=True)
     diubah_pada     = models.DateTimeField(auto_now=True)
@@ -588,6 +589,7 @@ class LaporanKegiatan(models.Model):
 class StatusItem(models.TextChoices):
     TERJADWAL   = 'terjadwal',  'Terjadwal'
     ON_PROGRESS = 'on_progress','On Progress'
+    MENUNGGU_APPROVAL  = 'menunggu_approval',   'Menunggu Approval'
     SELESAI     = 'selesai',    'Selesai'
 
 

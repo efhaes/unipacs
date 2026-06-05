@@ -23,7 +23,7 @@ from outsourcing.views.kepala_supervisor import (
 from outsourcing.views.supervisor import (
     dashboard_view as supervisor_dashboard,
     laporan_list, laporan_create, laporan_detail, laporan_edit, laporan_delete,
-    laporan_kirim,laporan_selesai,
+    laporan_kirim,laporan_selesai,laporan_toggle_aktif,
     item_create, item_edit, item_delete,
     staff_list as supervisor_staff_list, staff_create, staff_edit, staff_toggle_aktif, staff_delete,
     subarea_list, subarea_create, subarea_edit, subarea_delete,
@@ -39,7 +39,10 @@ from outsourcing.views.staff import (
 )
 from outsourcing.views.customer import (
     dashboard_view as customer_dashboard,
-    laporan_list as customer_laporan_list, laporan_detail as customer_laporan_detail,
+    laporan_list as customer_laporan_list,
+    laporan_detail as customer_laporan_detail,
+    item_approve as customer_item_approve,
+    item_approval_list as customer_item_approval_list,
 )
 from outsourcing.views.reporting import generate_laporan_bulanan
 from outsourcing.views.supervisor.absensi import api_update_overtime_status
@@ -110,6 +113,7 @@ urlpatterns = [
     path('supervisor/laporan/<int:pk>/selesai/', laporan_selesai, name='supervisor_laporan_selesai'),
     path('supervisor/laporan/<int:pk>/kirim/', laporan_kirim, name='supervisor_laporan_kirim'),
     path('supervisor/laporan/<int:laporan_pk>/item/tambah/', item_create, name='supervisor_item_create'),
+    path('supervisor/laporan/<int:pk>/toggle-aktif/', laporan_toggle_aktif, name='supervisor_laporan_toggle_aktif'),
     path('supervisor/item/<int:pk>/edit/', item_edit, name='supervisor_item_edit'),
     path('supervisor/item/<int:pk>/hapus/', item_delete, name='supervisor_item_delete'),
     path('supervisor/staff/', supervisor_staff_list, name='supervisor_staff_list'),
@@ -152,7 +156,9 @@ urlpatterns = [
     path('staff/izin/<int:pk>/batal/', izin_batal,  name='staff_izin_batal'),
 
     # Customer
-    path('customer/', customer_dashboard, name='customer_dashboard'),
-    path('customer/laporan/', customer_laporan_list, name='customer_laporan_list'),
-    path('customer/laporan/<int:pk>/', customer_laporan_detail, name='customer_laporan_detail'),
+   # Customer
+path('customer/', customer_dashboard, name='customer_dashboard'),
+path('customer/laporan/', customer_laporan_list, name='customer_laporan_list'),
+path('customer/laporan/<int:pk>/', customer_laporan_detail, name='customer_laporan_detail'),
+path('customer/item/<int:pk>/approve/', customer_item_approve, name='customer_item_approve'),  # ← tambah ini
 ]

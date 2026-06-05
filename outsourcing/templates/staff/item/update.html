@@ -5,7 +5,6 @@
 {% endblock %}
 {% block content %}
 
-
 <div class="update-page">
   <!-- Topbar -->
   <div class="topbar">
@@ -39,6 +38,8 @@
             <span class="badge-pill badge-terjadwal">Terjadwal</span>
           {% elif item.status == 'on_progress' %}
             <span class="badge-pill badge-progress">On Progress</span>
+          {% elif item.status == 'menunggu_approval' %}
+            <span class="badge-pill badge-waiting">Menunggu Approval</span>
           {% elif item.status == 'selesai' %}
             <span class="badge-pill badge-selesai">Selesai</span>
           {% endif %}
@@ -59,7 +60,11 @@
       <div class="jl">Mulai Kerja</div>
       <div class="jv">{% if item.jam_mulai %}{{ item.jam_mulai|date:'H:i' }}{% else %}—{% endif %}</div>
       <div class="js">
-        {% if item.jam_mulai %}<span class="badge-pill badge-selesai">✓ Sudah diisi</span>{% else %}<span style="color:#aaa;font-size:11px">Belum diisi</span>{% endif %}
+        {% if item.jam_mulai %}
+          <span class="badge-pill badge-selesai">✓ Sudah diisi</span>
+        {% else %}
+          <span style="color:#aaa;font-size:11px">Belum diisi</span>
+        {% endif %}
       </div>
     </div>
     <div class="jam-box selesai">
@@ -67,7 +72,11 @@
       <div class="jv">{% if item.jam_selesai %}{{ item.jam_selesai|date:'H:i' }}{% else %}—{% endif %}</div>
       <div class="js">
         {% if item.jam_selesai %}
-          {% if disable_save %}<span class="badge-pill badge-progress">Belum tiba</span>{% else %}<span class="badge-pill badge-selesai">Sudah tiba</span>{% endif %}
+          {% if disable_save %}
+            <span class="badge-pill badge-progress">Belum tiba</span>
+          {% else %}
+            <span class="badge-pill badge-selesai">Sudah tiba</span>
+          {% endif %}
         {% else %}
           <span style="color:#aaa;font-size:11px">Belum diisi</span>
         {% endif %}
@@ -81,7 +90,12 @@
     <div class="ci">⏳</div>
     <div>
       <div class="ct">Foto selesai bisa diupload pukul {{ item.jam_selesai|date:'H:i' }}</div>
-      <div class="ctimer" id="countdown" data-target-time="{% if item.jam_selesai %}{{ item.tanggal|date:'Y-m-d' }}T{{ item.jam_selesai|date:'H:i' }}:00{% endif %}" data-disable-save="{% if disable_save %}true{% else %}false{% endif %}">Menghitung...</div>
+      <div class="ctimer"
+           id="countdown"
+           data-target-time="{{ item.tanggal|date:'Y-m-d' }}T{{ item.jam_selesai|date:'H:i' }}:00"
+           data-disable-save="true">
+        Menghitung...
+      </div>
     </div>
   </div>
   {% endif %}
@@ -98,14 +112,21 @@
 
       <div class="step-hint">
         <div class="sn">1</div>
-        <div class="st"><strong>Foto sedang berjalan</strong> — ambil foto kondisi pekerjaan saat ini. Tekan <strong>Simpan</strong> segera agar tidak hilang.</div>
+        <div class="st">
+          <strong>Foto sedang berjalan</strong> — ambil foto kondisi pekerjaan saat ini.
+          Tekan <strong>Simpan</strong> segera agar tidak hilang.
+        </div>
       </div>
 
-      <div class="foto-item {% if item.foto_on_progress %}uploaded{% endif %}" id="boxProgress" data-has-progress="{% if item.foto_on_progress %}true{% else %}false{% endif %}">
+      <div class="foto-item {% if item.foto_on_progress %}uploaded{% endif %}"
+           id="boxProgress"
+           data-has-progress="{% if item.foto_on_progress %}true{% else %}false{% endif %}">
+
         <div class="foto-header">
           <div class="foto-icon-wrap fi-progress">
             <svg viewBox="0 0 24 24" fill="none" stroke="#0369A1" stroke-width="1.8">
-              <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/>
+              <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+              <circle cx="12" cy="13" r="4"/>
             </svg>
           </div>
           <div class="foto-header-text">
@@ -117,16 +138,20 @@
         </div>
 
         {% if item.foto_on_progress %}
-        <!-- Thumbnail foto yang sudah tersimpan -->
         <div class="foto-saved-thumb">
           <div class="fst-label green">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
             Foto tersimpan — ketuk untuk lihat
           </div>
           <a href="{{ item.foto_on_progress.url }}" target="_blank" class="fst-wrap green-border">
             <img src="{{ item.foto_on_progress.url }}" alt="Foto on progress" class="fst-img">
             <div class="fst-overlay">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
               Lihat foto
             </div>
           </a>
@@ -135,25 +160,29 @@
         <div class="ganti-label">Ganti Foto</div>
         {% endif %}
 
-        <!-- Preview foto baru (sebelum disimpan) -->
         <div class="foto-preview" id="previewProgress" style="display:none">
           <img id="imgProgress" src="" alt="preview">
           <button type="button" class="fp-remove" onclick="clearFoto('progress')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
           </button>
         </div>
 
         <div class="foto-actions">
           <button type="button" class="foto-btn" onclick="document.getElementById('real_foto_progress_cam').click()">
             <svg viewBox="0 0 24 24" fill="none" stroke="#0369A1" stroke-width="1.8">
-              <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/>
+              <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+              <circle cx="12" cy="13" r="4"/>
             </svg>
             <span>Buka Kamera</span>
             <small>Ambil foto langsung</small>
           </button>
           <button type="button" class="foto-btn" onclick="document.getElementById('real_foto_progress').click()">
             <svg viewBox="0 0 24 24" fill="none" stroke="#0369A1" stroke-width="1.8">
-              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
             </svg>
             <span>Pilih File</span>
             <small>Dari galeri / folder</small>
@@ -181,26 +210,41 @@
 
       <div class="step-hint" {% if disable_save %}style="opacity:.5"{% endif %}>
         <div class="sn">2</div>
-        <div class="st"><strong>Foto setelah selesai</strong> — bisa diupload setelah pukul {% if item.jam_selesai %}{{ item.jam_selesai|date:'H:i' }}{% else %}jam selesai{% endif %}. Tekan <strong>Simpan</strong> segera agar tidak hilang.</div>
+        <div class="st">
+          <strong>Foto setelah selesai</strong> — bisa diupload setelah pukul
+          {% if item.jam_selesai %}{{ item.jam_selesai|date:'H:i' }}{% else %}jam selesai{% endif %}.
+          Tekan <strong>Simpan</strong> segera agar tidak hilang.
+        </div>
       </div>
 
-      <div class="foto-item {% if item.foto_after %}uploaded-blue{% elif disable_save %}locked{% endif %}" id="boxAfter" data-has-after="{% if item.foto_after %}true{% else %}false{% endif %}">
+      <div class="foto-item {% if item.foto_after %}uploaded-blue{% elif disable_save %}locked{% endif %}"
+           id="boxAfter"
+           data-has-after="{% if item.foto_after %}true{% else %}false{% endif %}">
+
         <div class="foto-header">
           <div class="foto-icon-wrap {% if disable_save %}fi-locked{% else %}fi-after{% endif %}">
             {% if disable_save %}
             <svg viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="1.8">
-              <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+              <rect x="3" y="11" width="18" height="11" rx="2"/>
+              <path d="M7 11V7a5 5 0 0110 0v4"/>
             </svg>
             {% else %}
             <svg viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="1.8">
-              <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/>
+              <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+              <circle cx="12" cy="13" r="4"/>
             </svg>
             {% endif %}
           </div>
           <div class="foto-header-text">
             <div class="ft">Foto Setelah Selesai</div>
             <div class="fs {% if item.foto_after %}success-blue{% elif disable_save %}locked{% endif %}" id="statusAfter">
-              {% if item.foto_after %}✓ Sudah tersimpan{% elif disable_save %}🔒 Terkunci sampai pukul {{ item.jam_selesai|date:'H:i' }}{% else %}Belum ada foto{% endif %}
+              {% if item.foto_after %}
+                ✓ Sudah tersimpan
+              {% elif disable_save %}
+                🔒 Terkunci sampai pukul {{ item.jam_selesai|date:'H:i' }}
+              {% else %}
+                Belum ada foto
+              {% endif %}
             </div>
           </div>
         </div>
@@ -208,16 +252,20 @@
         {% if not disable_save %}
 
           {% if item.foto_after %}
-          <!-- Thumbnail foto after yang sudah tersimpan -->
           <div class="foto-saved-thumb">
             <div class="fst-label blue">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2.5">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
               Foto tersimpan — ketuk untuk lihat
             </div>
             <a href="{{ item.foto_after.url }}" target="_blank" class="fst-wrap blue-border">
               <img src="{{ item.foto_after.url }}" alt="Foto after" class="fst-img">
               <div class="fst-overlay">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
                 Lihat foto
               </div>
             </a>
@@ -226,29 +274,60 @@
           <div class="ganti-label">Ganti Foto</div>
           {% endif %}
 
-          <!-- Preview foto baru (sebelum disimpan) -->
           <div class="foto-preview" id="previewAfter" style="display:none">
             <img id="imgAfter" src="" alt="preview">
             <button type="button" class="fp-remove" onclick="clearFoto('after')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
             </button>
           </div>
 
           <div class="foto-actions">
             <button type="button" class="foto-btn after" onclick="document.getElementById('real_foto_after_cam').click()">
               <svg viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="1.8">
-                <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/>
+                <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+                <circle cx="12" cy="13" r="4"/>
               </svg>
               <span>Buka Kamera</span>
               <small>Ambil foto langsung</small>
             </button>
             <button type="button" class="foto-btn after" onclick="document.getElementById('real_foto_after').click()">
               <svg viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="1.8">
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
               </svg>
               <span>Pilih File</span>
               <small>Dari galeri / folder</small>
             </button>
+          </div>
+
+          <!-- ── Notifikasi keterlambatan — tampil via JS jika selisih > 30 menit ── -->
+          <div class="delay-notice" id="delayNotice" style="display:none">
+            <div class="dn-icon">⚠️</div>
+            <div class="dn-text">
+              <strong>Pekerjaan selesai melebihi estimasi</strong>
+              <span id="delayDetail"></span>
+              Silakan isi keterangan di bawah jika ada kendala — <em>tidak wajib</em>.
+            </div>
+            <button type="button" class="dn-close" onclick="document.getElementById('delayNotice').style.display='none'">✕</button>
+          </div>
+
+          <!-- ── Keterangan keterlambatan (opsional) ── -->
+          <div class="keterangan-wrap">
+            <label class="keterangan-label" for="keterangan_after">
+              📝 Keterangan <span class="keterangan-optional">(opsional)</span>
+            </label>
+            <textarea
+              id="keterangan_after"
+              name="keterangan_after"
+              class="keterangan-input"
+              rows="3"
+              placeholder="Contoh: Pekerjaan selesai terlambat karena terjadi kerusakan tambahan pada instalasi listrik yang tidak terdeteksi sebelumnya...">{% if item.catatan_staff %}{{ item.catatan_staff }}{% endif %}</textarea>
+            <div class="keterangan-hint">
+              Jelaskan kendala atau kondisi lapangan jika waktu penyelesaian melebihi estimasi.
+            </div>
           </div>
 
           <div class="foto-save-wrap">
@@ -267,42 +346,18 @@
   </form>
 
   <!-- ===================== FORM UTAMA (catatan + simpan) ===================== -->
-  <form method="post" enctype="multipart/form-data" id="mainForm">
-    {% csrf_token %}
-    <input type="hidden" name="save_type" value="all">
-
-    <div class="ucard">
-      <div class="section-label">Catatan (opsional)</div>
-      <div class="catatan-wrap">
-        {{ form.catatan_staff }}
-      </div>
-
-      <div class="info-bar" style="margin-top:12px">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        <p>Status otomatis: <strong>On Progress</strong> saat upload foto berjalan &bull; <strong>Selesai</strong> saat foto after + jam selesai sudah tiba</p>
-      </div>
-
-      <button type="submit" class="btn-save {% if disable_save %}disabled{% else %}active{% endif %}" id="btnSimpan" {% if disable_save %}disabled{% endif %}>
-        {% if disable_save %}
-          ⏳ Tunggu sampai pukul {{ item.jam_selesai|date:'H:i' }}
-        {% else %}
-          ✓ Simpan Catatan
-        {% endif %}
-      </button>
-      <a href="{% url 'staff_item_list' %}" class="btn-cancel">Kembali ke daftar</a>
-    </div>
-  </form>
-
+  
 </div>
 {% endblock %}
+
 {% block extra_js %}
 <script>
+// ── Setup preview foto ────────────────────────────────────────────────────
 function setupFotoInput(inputId, imgId, previewId, boxId, statusId) {
   var input = document.getElementById(inputId);
   if (!input) return;
   input.addEventListener('change', function() {
     if (!this.files || !this.files[0]) return;
-    var file = this.files[0];
     var reader = new FileReader();
     reader.onload = function(e) {
       document.getElementById(imgId).src = e.target.result;
@@ -311,7 +366,7 @@ function setupFotoInput(inputId, imgId, previewId, boxId, statusId) {
       document.getElementById(statusId).textContent = '✓ Foto dipilih — tekan Simpan!';
       document.getElementById(statusId).className = 'fs success';
     };
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(this.files[0]);
   });
 }
 
@@ -320,22 +375,23 @@ setupFotoInput('real_foto_progress_cam', 'imgProgress', 'previewProgress', 'boxP
 setupFotoInput('real_foto_after',        'imgAfter',    'previewAfter',    'boxAfter',    'statusAfter');
 setupFotoInput('real_foto_after_cam',    'imgAfter',    'previewAfter',    'boxAfter',    'statusAfter');
 
-// Sinkronisasi input kamera vs file
-['real_foto_progress_cam','real_foto_progress'].forEach(function(id, i, arr) {
+// ── Sinkronisasi kamera vs file (tidak boleh keduanya terisi) ────────────
+['real_foto_progress_cam', 'real_foto_progress'].forEach(function(id, i, arr) {
   var el = document.getElementById(id);
   if (el) el.addEventListener('change', function() {
-    var other = document.getElementById(arr[1-i]);
+    var other = document.getElementById(arr[1 - i]);
     if (other && this.files.length > 0) other.value = '';
   });
 });
-['real_foto_after_cam','real_foto_after'].forEach(function(id, i, arr) {
+['real_foto_after_cam', 'real_foto_after'].forEach(function(id, i, arr) {
   var el = document.getElementById(id);
   if (el) el.addEventListener('change', function() {
-    var other = document.getElementById(arr[1-i]);
+    var other = document.getElementById(arr[1 - i]);
     if (other && this.files.length > 0) other.value = '';
   });
 });
 
+// ── Clear foto ────────────────────────────────────────────────────────────
 function clearFoto(which) {
   if (which === 'progress') {
     document.getElementById('real_foto_progress').value      = '';
@@ -345,12 +401,12 @@ function clearFoto(which) {
     var boxProgress = document.getElementById('boxProgress');
     var hasProgress = boxProgress.dataset.hasProgress === 'true';
     if (hasProgress) {
-      document.getElementById('statusProgress').textContent    = '✓ Sudah tersimpan';
-      document.getElementById('statusProgress').className      = 'fs success';
+      document.getElementById('statusProgress').textContent = '✓ Sudah tersimpan';
+      document.getElementById('statusProgress').className   = 'fs success';
       boxProgress.classList.add('uploaded');
     } else {
-      document.getElementById('statusProgress').textContent    = 'Belum ada foto';
-      document.getElementById('statusProgress').className      = 'fs';
+      document.getElementById('statusProgress').textContent = 'Belum ada foto';
+      document.getElementById('statusProgress').className   = 'fs';
       boxProgress.classList.remove('uploaded');
     }
   } else {
@@ -361,18 +417,18 @@ function clearFoto(which) {
     var boxAfter = document.getElementById('boxAfter');
     var hasAfter = boxAfter.dataset.hasAfter === 'true';
     if (hasAfter) {
-      document.getElementById('statusAfter').textContent       = '✓ Sudah tersimpan';
-      document.getElementById('statusAfter').className         = 'fs success-blue';
+      document.getElementById('statusAfter').textContent = '✓ Sudah tersimpan';
+      document.getElementById('statusAfter').className   = 'fs success-blue';
       boxAfter.classList.add('uploaded-blue');
     } else {
-      document.getElementById('statusAfter').textContent       = 'Belum ada foto';
-      document.getElementById('statusAfter').className         = 'fs';
+      document.getElementById('statusAfter').textContent = 'Belum ada foto';
+      document.getElementById('statusAfter').className   = 'fs';
       boxAfter.classList.remove('uploaded-blue');
     }
   }
 }
 
-// Loading state saat submit
+// ── Loading state saat submit ─────────────────────────────────────────────
 document.getElementById('formProgress').addEventListener('submit', function() {
   var btn = document.getElementById('btnSimpanProgress');
   btn.disabled = true;
@@ -383,7 +439,7 @@ document.getElementById('formAfter').addEventListener('submit', function() {
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Menyimpan...'; }
 });
 
-// Countdown & auto-unlock
+// ── Countdown & auto-unlock ───────────────────────────────────────────────
 var countdownEl = document.getElementById('countdown');
 if (countdownEl && countdownEl.dataset.disableSave === 'true' && countdownEl.dataset.targetTime) {
   var targetTime = new Date(countdownEl.dataset.targetTime);
@@ -399,11 +455,51 @@ if (countdownEl && countdownEl.dataset.disableSave === 'true' && countdownEl.dat
     var m = Math.floor((diff % 3600000) / 60000);
     var s = Math.floor((diff % 60000) / 1000);
     countdownEl.textContent =
-      'Sisa: ' + String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+      'Sisa: ' + String(h).padStart(2, '0') + ':' +
+                 String(m).padStart(2, '0') + ':' +
+                 String(s).padStart(2, '0');
   }
   updateCountdown();
   setInterval(updateCountdown, 1000);
 }
-</script>
 
+// ── Deteksi keterlambatan & tampilkan notifikasi ──────────────────────────
+(function() {
+  {% if item.jam_selesai and not disable_save %}
+  var plannedEnd  = new Date("{{ item.tanggal|date:'Y-m-d' }}T{{ item.jam_selesai|date:'H:i' }}:00");
+  var now         = new Date();
+  var diffMinutes = Math.floor((now - plannedEnd) / 60000);
+  var notice      = document.getElementById('delayNotice');
+  var detail      = document.getElementById('delayDetail');
+
+  if (notice && diffMinutes >= 30) {
+    var jam    = Math.floor(diffMinutes / 60);
+    var menit  = diffMinutes % 60;
+    var selisih = jam > 0
+      ? (jam + ' jam' + (menit > 0 ? ' ' + menit + ' menit' : ''))
+      : (menit + ' menit');
+
+    detail.textContent = 'Estimasi selesai pukul {{ item.jam_selesai|date:"H:i" }}, '
+      + 'sudah terlewat ' + selisih + '. ';
+
+    notice.style.display = 'flex';
+
+    // Scroll ke textarea jika masih kosong & belum ada foto after tersimpan
+    var keteranganEl = document.getElementById('keterangan_after');
+    {% if not item.foto_after %}
+    if (keteranganEl && !keteranganEl.value.trim()) {
+      setTimeout(function() {
+        keteranganEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        keteranganEl.classList.add('keterangan-highlight');
+        // Hilangkan highlight setelah animasi selesai
+        setTimeout(function() {
+          keteranganEl.classList.remove('keterangan-highlight');
+        }, 2000);
+      }, 600);
+    }
+    {% endif %}
+  }
+  {% endif %}
+})();
+</script>
 {% endblock %}

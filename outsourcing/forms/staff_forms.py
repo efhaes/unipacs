@@ -1,7 +1,7 @@
 from django import forms
 from django.utils import timezone
 from datetime import date
-from outsourcing.models import ItemKegiatan, LaporanKegiatan
+from outsourcing.models import ItemKegiatan, LaporanKegiatan,FotoItemKegiatan
 
 
 class ItemKegiatanStaffForm(forms.ModelForm):
@@ -301,4 +301,17 @@ class ItemKegiatanInsidentalForm(forms.ModelForm):
 
         return cleaned
 
+# forms/staff_forms.py
 
+
+
+class FotoTambahanForm(forms.ModelForm):
+    class Meta:
+        model  = FotoItemKegiatan
+        fields = ['foto', 'jenis', 'keterangan']
+        widgets = {
+            'keterangan': forms.TextInput(attrs={
+                'placeholder': 'Contoh: Kondisi saluran air sebelah utara...',
+                'maxlength'  : 300,
+            }),
+        }

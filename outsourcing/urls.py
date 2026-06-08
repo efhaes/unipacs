@@ -20,6 +20,8 @@ from outsourcing.views.kepala_supervisor import (
     laporan_list as kepala_laporan_list, laporan_detail as kepala_laporan_detail,
     area_list, area_create, area_edit, area_delete,pilih_supervisor,set_acting_supervisor,clear_acting_supervisor
 )
+from outsourcing.views.staff.item import item_hapus_foto_tambahan_ajax, item_upload_foto_tambahan_ajax
+from outsourcing.views.staff.item import item_hapus_foto_tambahan_ajax
 from outsourcing.views.supervisor import (
     dashboard_view as supervisor_dashboard,
     laporan_list, laporan_create, laporan_detail, laporan_edit, laporan_delete,
@@ -35,7 +37,7 @@ from outsourcing.views.staff import (
     item_list, item_update, item_update_jam,item_create_insidental,
     qr_scan_landing, qr_scan_page, absensi_riwayat, api_today_status,izin_submit,
     izin_detail,
-    izin_batal,
+    izin_batal,item_upload_foto_tambahan, item_hapus_foto_tambahan,
 )
 from outsourcing.views.customer import (
     dashboard_view as customer_dashboard,
@@ -154,8 +156,11 @@ urlpatterns = [
     path('staff/api/today-status/', api_today_status, name='staff_api_today_status'),
     path('staff/izin/ajukan/',         izin_submit, name='staff_izin_submit'),
     path('staff/izin/<int:pk>/batal/', izin_batal,  name='staff_izin_batal'),
+    path('staff/item/<int:pk>/foto-tambahan/',         item_upload_foto_tambahan, name='staff_item_foto_tambahan'),
+    path('staff/item/foto-tambahan/<int:foto_pk>/hapus/', item_hapus_foto_tambahan,  name='staff_item_foto_tambahan_hapus'),
+    path("staff/item/<int:pk>/foto-tambahan/ajax/",item_upload_foto_tambahan_ajax,name="staff_item_foto_tambahan_ajax"),
+    path("staff/item/foto-tambahan/<int:foto_pk>/hapus/ajax/",  item_hapus_foto_tambahan_ajax,name="staff_item_foto_tambahan_hapus_ajax"),
 
-    # Customer
    # Customer
 path('customer/', customer_dashboard, name='customer_dashboard'),
 path('customer/laporan/', customer_laporan_list, name='customer_laporan_list'),

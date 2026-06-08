@@ -652,6 +652,14 @@ class ItemKegiatan(models.Model):
         blank=True,
         help_text='Catatan tambahan dari staff lapangan.',
     )
+    waktu_selesai_aktual = models.DateTimeField(
+    null=True,
+    blank=True,
+    help_text='Waktu aktual saat staff mengupload foto after (otomatis diisi sistem).',)
+    keterangan_overtime = models.TextField(
+        blank=True,
+        help_text='Wajib diisi jika keterlambatan lebih dari 1 jam.',
+    )
     dibuat_pada     = models.DateTimeField(auto_now_add=True)
     diubah_pada     = models.DateTimeField(auto_now=True)
 
@@ -729,6 +737,59 @@ class ItemKegiatan(models.Model):
         ]
 
 
+class FotoItemKegiatan(models.Model):
+
+    MAKS_FOTO = 6
+
+    class JenisFoto(models.TextChoices):
+        TAMBAHAN = 'tambahan', 'Foto Tambahan'
+        KONDISI  = 'kondisi',  'Kondisi Lapangan'
+        KENDALA  = 'kendala',  'Kendala / Hambatan'
+        LAINNYA  = 'lainnya',  'Lainnya'
+
+    item = models.ForeignKey(
+        ItemKegiatan,
+        on_delete=models.CASCADE,
+        related_name='foto_tambahan',
+    )
+    foto = models.ImageField(upload_to='foto_item/tambahan/')
+    jenis = models.CharField(
+        max_length=20,
+        choices=JenisFoto.choices,
+        default=JenisFoto.TAMBAHAN,
+    )
+    keterangan = models.CharField(
+        max_length=300,
+        blank=True,
+        help_text='Keterangan singkat konteks foto (opsional).',
+    )
+    urutan        = models.PositiveSmallIntegerField(default=0)
+    diunggah_pada = models.DateTimeField(auto_now_add=True)
+
+    def clean(self):
+        # item belum diset saat form.save(commit=False) — skip validasi
+        if not self.item_id:                          # ← baris baru
+            return                                    # ← baris baru
+
+        existing = FotoItemKegiatan.objects.filter(item=self.item)
+        if self.pk:
+            existing = existing.exclude(pk=self.pk)
+
+        if existing.count() >= self.MAKS_FOTO:
+            raise ValidationError(
+                f"Maksimal {self.MAKS_FOTO} foto tambahan per item kegiatan."
+            )
+
+    class Meta:
+        verbose_name        = 'Foto Tambahan Item Kegiatan'
+        verbose_name_plural = 'Foto Tambahan Item Kegiatan'
+        ordering            = ['urutan', 'diunggah_pada']
+        indexes             = [
+            models.Index(fields=['item', 'urutan'], name='idx_foto_item_urutan'),
+        ]
+
+    def __str__(self):
+        return f"Foto {self.get_jenis_display()} — {self.item.nama_item}"
 
 
 class OvertimeStatusChoices(models.TextChoices):

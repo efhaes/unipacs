@@ -6,6 +6,7 @@
 {% block content %}
 
 <div class="update-page">
+
   <!-- Topbar -->
   <div class="topbar">
     <div>
@@ -15,7 +16,7 @@
     <a href="{% url 'staff_item_list' %}" class="btn-back">← Kembali</a>
   </div>
 
-  <!-- Info Card -->
+  <!-- ===================== INFO PEKERJAAN ===================== -->
   <div class="ucard">
     <div class="section-label">Info Pekerjaan</div>
     <div class="info-grid">
@@ -54,7 +55,7 @@
     </div>
   </div>
 
-  <!-- Jam boxes -->
+  <!-- ===================== JAM BOXES ===================== -->
   <div class="jam-row">
     <div class="jam-box mulai">
       <div class="jl">Mulai Kerja</div>
@@ -84,7 +85,73 @@
     </div>
   </div>
 
-  <!-- Countdown bar -->
+  <!-- ===================== INFO WAKTU AKTUAL ===================== -->
+  {% if item.waktu_selesai_aktual %}
+  <div class="ucard">
+    <div class="section-label">Rekap Waktu Pekerjaan</div>
+    <div class="waktu-aktual-box">
+      <div class="wa-row">
+        <span class="wa-label">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+          Jadwal Mulai
+        </span>
+        <span class="wa-value">{{ item.jam_mulai|date:"H:i"|default:"—" }}</span>
+      </div>
+      <div class="wa-row">
+        <span class="wa-label">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+          Jadwal Selesai
+        </span>
+        <span class="wa-value">{{ item.jam_selesai|date:"H:i"|default:"—" }}</span>
+      </div>
+      <div class="wa-divider"></div>
+      <div class="wa-row">
+        <span class="wa-label">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+          Selesai Aktual
+        </span>
+        <span class="wa-value" style="color:#38bdf8;">{{ item.waktu_selesai_aktual|time:"H:i" }}</span>
+      </div>
+      {% if overtime_menit > 0 %}
+      <div class="wa-row wa-overtime">
+        <span class="wa-label">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          Keterlambatan
+        </span>
+        <span class="wa-value" style="color:#f59e0b;font-weight:700;">{{ overtime_durasi }}</span>
+      </div>
+      {% if item.keterangan_overtime %}
+      <div class="wa-keterangan">
+        <div class="wa-label" style="margin-bottom:4px;">Keterangan Keterlambatan</div>
+        <p>{{ item.keterangan_overtime }}</p>
+      </div>
+      {% endif %}
+      {% else %}
+      <div class="wa-row" style="margin-top:4px;">
+        <span class="wa-label" style="color:#4ade80;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2.5">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Tepat Waktu
+        </span>
+        <span class="wa-value" style="color:#4ade80;">✓</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ===================== COUNTDOWN BAR ===================== -->
   {% if item.jam_selesai and disable_save %}
   <div class="countdown-bar">
     <div class="ci">⏳</div>
@@ -99,6 +166,21 @@
     </div>
   </div>
   {% endif %}
+
+  <!--
+    data-* container — semua nilai dari Django dikumpulkan di sini,
+    tidak ada template tag di dalam blok <script>.
+  -->
+  <div id="pageData"
+       data-jam-selesai="{% if item.jam_selesai and not disable_save %}{{ item.tanggal|date:'Y-m-d' }}T{{ item.jam_selesai|date:'H:i' }}:00{% endif %}"
+       data-jam-label="{% if item.jam_selesai %}{{ item.jam_selesai|date:'H:i' }}{% endif %}"
+       data-has-foto-after="{% if item.foto_after %}true{% else %}false{% endif %}"
+       data-overtime-threshold="{{ overtime_wajib_threshold }}"
+       data-item-status="{{ item.status }}"
+       data-maks-foto="{{ maks_foto }}"
+       data-upload-url="{% url 'staff_item_foto_tambahan_ajax' item.pk %}"
+       style="display:none">
+  </div>
 
   <!-- ===================== FORM FOTO ON PROGRESS ===================== -->
   <form method="post" enctype="multipart/form-data" id="formProgress">
@@ -303,19 +385,18 @@
             </button>
           </div>
 
-          <!-- ── Notifikasi keterlambatan — tampil via JS jika selisih > 30 menit ── -->
           <div class="delay-notice" id="delayNotice" style="display:none">
             <div class="dn-icon">⚠️</div>
             <div class="dn-text">
               <strong>Pekerjaan selesai melebihi estimasi</strong>
               <span id="delayDetail"></span>
-              Silakan isi keterangan di bawah jika ada kendala — <em>tidak wajib</em>.
+              Silakan isi keterangan di bawah jika ada kendala.
             </div>
-            <button type="button" class="dn-close" onclick="document.getElementById('delayNotice').style.display='none'">✕</button>
+            <button type="button" class="dn-close"
+                    onclick="document.getElementById('delayNotice').style.display='none'">✕</button>
           </div>
 
-          <!-- ── Keterangan keterlambatan (opsional) ── -->
-          <div class="keterangan-wrap">
+          <div class="keterangan-wrap" id="keteranganAfterWrap">
             <label class="keterangan-label" for="keterangan_after">
               📝 Keterangan <span class="keterangan-optional">(opsional)</span>
             </label>
@@ -323,10 +404,29 @@
               id="keterangan_after"
               name="keterangan_after"
               class="keterangan-input"
+              rows="2"
+              placeholder="Catatan singkat kondisi lapangan saat pekerjaan selesai...">{% if item.catatan_staff %}{{ item.catatan_staff }}{% endif %}</textarea>
+          </div>
+
+          <div class="keterangan-wrap"
+               id="keteranganOvertimeWrap"
+               {% if not keterangan_overtime_wajib %}style="display:none"{% endif %}>
+            <label class="keterangan-label" for="keterangan_overtime">
+              ⚠️ Alasan Keterlambatan
+              <span id="overtimeBadge"
+                    style="color:{% if keterangan_overtime_wajib %}#f87171{% else %}#9CA3AF{% endif %};font-size:11px;font-weight:600;">
+                {% if keterangan_overtime_wajib %}WAJIB — terlambat lebih dari 1 jam{% else %}(opsional){% endif %}
+              </span>
+            </label>
+            <textarea
+              id="keterangan_overtime"
+              name="keterangan_overtime"
+              class="keterangan-input {% if keterangan_overtime_wajib %}keterangan-highlight{% endif %}"
               rows="3"
-              placeholder="Contoh: Pekerjaan selesai terlambat karena terjadi kerusakan tambahan pada instalasi listrik yang tidak terdeteksi sebelumnya...">{% if item.catatan_staff %}{{ item.catatan_staff }}{% endif %}</textarea>
+              {% if keterangan_overtime_wajib %}required{% endif %}
+              placeholder="Contoh: Pekerjaan terlambat karena peralatan mengalami kerusakan..."></textarea>
             <div class="keterangan-hint">
-              Jelaskan kendala atau kondisi lapangan jika waktu penyelesaian melebihi estimasi.
+              Jelaskan kendala yang menyebabkan pekerjaan selesai melebihi jadwal yang ditetapkan.
             </div>
           </div>
 
@@ -345,13 +445,215 @@
     </div>
   </form>
 
+  <!-- ===================== FOTO TAMBAHAN ===================== -->
+  <div class="ucard" id="cardFotoTambahan">
+    <div class="section-label">
+      Foto Dokumentasi Tambahan
+      <span id="fotoTambahanCounter" style="font-size:11px;font-weight:400;color:#9CA3AF;margin-left:6px;">
+        {{ jumlah_foto }}/{{ maks_foto }} foto
+      </span>
+    </div>
+
+    <div class="step-hint" style="margin-bottom:12px;">
+      <div class="sn">3</div>
+      <div class="st">
+        <strong>Foto tambahan</strong> — dokumentasi kondisi khusus di lapangan.
+        Maksimal <strong>{{ maks_foto }} foto</strong>, bersifat opsional.
+      </div>
+    </div>
+
+    <div class="foto-tambahan-grid" id="fotoTambahanGrid">
+      {% for foto in foto_tambahan %}
+      <div class="ft-item" id="ft-item-{{ foto.pk }}">
+        <a href="{{ foto.foto.url }}" target="_blank" class="ft-thumb">
+          <img src="{{ foto.foto.url }}" alt="Foto tambahan">
+          <div class="ft-overlay">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </div>
+        </a>
+        <div class="ft-meta">
+          <span class="ft-jenis">{{ foto.get_jenis_display }}</span>
+          {% if foto.keterangan %}
+          <span class="ft-ket">{{ foto.keterangan }}</span>
+          {% endif %}
+        </div>
+        {% if item.status != 'menunggu_approval' and item.status != 'selesai' %}
+        <button type="button"
+                class="ft-hapus-btn ft-hapus-ajax"
+                data-foto-pk="{{ foto.pk }}"
+                data-hapus-url="{% url 'staff_item_foto_tambahan_hapus_ajax' foto.pk %}"
+                title="Hapus foto">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
+    {% if item.status != 'menunggu_approval' and item.status != 'selesai' %}
+      <div id="wrapTambahFoto">
+        {% if sisa_slot > 0 %}
+        <button type="button" class="btn-tambah-foto" id="btnBukaTambahFoto">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="16"/>
+            <line x1="8" y1="12" x2="16" y2="12"/>
+          </svg>
+          Tambah Foto Dokumentasi
+          <span id="sisaSlotLabel" style="font-size:11px;opacity:.7;">(sisa {{ sisa_slot }} slot)</span>
+        </button>
+        {% else %}
+        <div class="foto-penuh-notice" id="fotoPenuhNotice">
+          ✓ Batas maksimal {{ maks_foto }} foto dokumentasi sudah tercapai.
+        </div>
+        {% endif %}
+      </div>
+    {% else %}
+      {% if not foto_tambahan %}
+      <div style="padding:10px 0;font-size:12px;color:#9CA3AF;text-align:center;">
+        Tidak ada foto dokumentasi tambahan.
+      </div>
+      {% endif %}
+    {% endif %}
+  </div>
+
+  <!-- ===================== MODAL TAMBAH FOTO TAMBAHAN ===================== -->
+  <!--
+    Modal di-append ke <body> via JS saat dibuka — fix iOS Safari stacking
+    context bug yang disebabkan backdrop-filter pada parent element.
+  -->
+  {% if item.status != 'menunggu_approval' and item.status != 'selesai' %}
+<div id="modalFotoTambahan" style="display:none">
+  <div class="modal-panel">
+
+    <div class="modal-handle"></div>
+
+    <div class="modal-header">
+      <div class="modal-title">📷 Tambah Foto Dokumentasi</div>
+      <button type="button" id="btnTutupModal" class="modal-close-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <form id="formFotoTambahanModal" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div id="previewFotoTambahan" class="modal-preview-box" style="display:none">
+          <img id="imgPreviewTambahan" src="" alt="preview" class="modal-preview-img">
+          <button type="button" id="btnClearTambahan" class="modal-preview-clear">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        <input type="file" id="inputFotoTambahanCam"  name="foto" accept="image/*" capture="environment" style="display:none">
+        <input type="file" id="inputFotoTambahanFile" name="foto" accept="image/*" style="display:none">
+
+        <div class="modal-foto-actions">
+          <button type="button"
+                  onclick="document.getElementById('inputFotoTambahanCam').click()"
+                  class="modal-foto-btn">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="1.8">
+              <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+            <span class="mfb-label">Kamera</span>
+            <span class="mfb-sub">Ambil langsung</span>
+          </button>
+          <button type="button"
+                  onclick="document.getElementById('inputFotoTambahanFile').click()"
+                  class="modal-foto-btn">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="1.8">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <span class="mfb-label">Galeri</span>
+            <span class="mfb-sub">Dari folder</span>
+          </button>
+        </div>
+
+        <div class="modal-field">
+          <label class="modal-field-label">Jenis Foto</label>
+          {{ foto_tambahan_form.jenis }}
+        </div>
+
+        <div class="modal-field">
+          <label class="modal-field-label">
+            Keterangan
+            <span class="optional">(opsional)</span>
+          </label>
+          {{ foto_tambahan_form.keterangan }}
+        </div>
+
+        <div id="errorFotoTambahan" class="modal-error-box" style="display:none"></div>
+
+        <button type="submit" id="btnSimpanFotoTambahan" class="modal-submit-btn">
+          💾 Simpan Foto
+        </button>
+      </form>
+    </div>
+
+  </div>
+</div>
+{% endif %}
   <!-- ===================== FORM UTAMA (catatan + simpan) ===================== -->
-  
+  <form method="post" enctype="multipart/form-data" id="mainForm">
+    {% csrf_token %}
+    <input type="hidden" name="save_type" value="all">
+
+    <div class="ucard">
+      <div class="section-label">Catatan (opsional)</div>
+      <div class="catatan-wrap">
+        {{ form.catatan_staff }}
+      </div>
+
+      <div class="info-bar" style="margin-top:12px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.8">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <p>
+          Status otomatis: <strong>On Progress</strong> saat upload foto berjalan &bull;
+          <strong>Menunggu Approval</strong> saat foto after + jam selesai sudah tiba &bull;
+          <strong>Selesai</strong> setelah disetujui customer
+        </p>
+      </div>
+
+      <button type="submit"
+              class="btn-save {% if disable_save %}disabled{% else %}active{% endif %}"
+              id="btnSimpan"
+              {% if disable_save %}disabled{% endif %}>
+        {% if disable_save %}
+          ⏳ Tunggu sampai pukul {{ item.jam_selesai|date:'H:i' }}
+        {% else %}
+          ✓ Simpan Catatan
+        {% endif %}
+      </button>
+      <a href="{% url 'staff_item_list' %}" class="btn-cancel">Kembali ke daftar</a>
+    </div>
+  </form>
+
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+// ─────────────────────────────────────────────────────────────────────────────
+// Baca semua nilai dari data-* — tidak ada template tag di dalam script block
+// ─────────────────────────────────────────────────────────────────────────────
+var pageData = document.getElementById('pageData').dataset;
+
 // ── Setup preview foto ────────────────────────────────────────────────────
 function setupFotoInput(inputId, imgId, previewId, boxId, statusId) {
   var input = document.getElementById(inputId);
@@ -375,7 +677,7 @@ setupFotoInput('real_foto_progress_cam', 'imgProgress', 'previewProgress', 'boxP
 setupFotoInput('real_foto_after',        'imgAfter',    'previewAfter',    'boxAfter',    'statusAfter');
 setupFotoInput('real_foto_after_cam',    'imgAfter',    'previewAfter',    'boxAfter',    'statusAfter');
 
-// ── Sinkronisasi kamera vs file (tidak boleh keduanya terisi) ────────────
+// ── Sinkronisasi kamera vs file ───────────────────────────────────────────
 ['real_foto_progress_cam', 'real_foto_progress'].forEach(function(id, i, arr) {
   var el = document.getElementById(id);
   if (el) el.addEventListener('change', function() {
@@ -399,8 +701,7 @@ function clearFoto(which) {
     document.getElementById('previewProgress').style.display = 'none';
     document.getElementById('imgProgress').src               = '';
     var boxProgress = document.getElementById('boxProgress');
-    var hasProgress = boxProgress.dataset.hasProgress === 'true';
-    if (hasProgress) {
+    if (boxProgress.dataset.hasProgress === 'true') {
       document.getElementById('statusProgress').textContent = '✓ Sudah tersimpan';
       document.getElementById('statusProgress').className   = 'fs success';
       boxProgress.classList.add('uploaded');
@@ -415,8 +716,7 @@ function clearFoto(which) {
     document.getElementById('previewAfter').style.display    = 'none';
     document.getElementById('imgAfter').src                  = '';
     var boxAfter = document.getElementById('boxAfter');
-    var hasAfter = boxAfter.dataset.hasAfter === 'true';
-    if (hasAfter) {
+    if (boxAfter.dataset.hasAfter === 'true') {
       document.getElementById('statusAfter').textContent = '✓ Sudah tersimpan';
       document.getElementById('statusAfter').className   = 'fs success-blue';
       boxAfter.classList.add('uploaded-blue');
@@ -465,41 +765,297 @@ if (countdownEl && countdownEl.dataset.disableSave === 'true' && countdownEl.dat
 
 // ── Deteksi keterlambatan & tampilkan notifikasi ──────────────────────────
 (function() {
-  {% if item.jam_selesai and not disable_save %}
-  var plannedEnd  = new Date("{{ item.tanggal|date:'Y-m-d' }}T{{ item.jam_selesai|date:'H:i' }}:00");
-  var now         = new Date();
-  var diffMinutes = Math.floor((now - plannedEnd) / 60000);
-  var notice      = document.getElementById('delayNotice');
-  var detail      = document.getElementById('delayDetail');
+  var jamSelesai = pageData.jamSelesai;
+  var jamLabel   = pageData.jamLabel;
+  var hasFoto    = pageData.hasFotoAfter === 'true';
+  var threshold  = parseInt(pageData.overtimeThreshold, 10) || 60;
 
-  if (notice && diffMinutes >= 30) {
-    var jam    = Math.floor(diffMinutes / 60);
-    var menit  = diffMinutes % 60;
-    var selisih = jam > 0
-      ? (jam + ' jam' + (menit > 0 ? ' ' + menit + ' menit' : ''))
-      : (menit + ' menit');
+  if (!jamSelesai) return;
 
-    detail.textContent = 'Estimasi selesai pukul {{ item.jam_selesai|date:"H:i" }}, '
-      + 'sudah terlewat ' + selisih + '. ';
+  var plannedEnd   = new Date(jamSelesai);
+  var notice       = document.getElementById('delayNotice');
+  var detail       = document.getElementById('delayDetail');
+  var overtimeWrap = document.getElementById('keteranganOvertimeWrap');
+  var overtimeTxt  = document.getElementById('keterangan_overtime');
+  var badge        = document.getElementById('overtimeBadge');
 
-    notice.style.display = 'flex';
+  function cekOvertime() {
+    var diffMinutes = Math.floor((new Date() - plannedEnd) / 60000);
+    if (diffMinutes < 0) return;
 
-    // Scroll ke textarea jika masih kosong & belum ada foto after tersimpan
-    var keteranganEl = document.getElementById('keterangan_after');
-    {% if not item.foto_after %}
-    if (keteranganEl && !keteranganEl.value.trim()) {
-      setTimeout(function() {
-        keteranganEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        keteranganEl.classList.add('keterangan-highlight');
-        // Hilangkan highlight setelah animasi selesai
-        setTimeout(function() {
-          keteranganEl.classList.remove('keterangan-highlight');
-        }, 2000);
-      }, 600);
+    if (notice && diffMinutes >= 30) {
+      var jam     = Math.floor(diffMinutes / 60);
+      var menit   = diffMinutes % 60;
+      var selisih = jam > 0
+        ? (jam + ' jam' + (menit > 0 ? ' ' + menit + ' menit' : ''))
+        : (menit + ' menit');
+
+      if (detail) {
+        detail.textContent = 'Estimasi selesai pukul ' + jamLabel
+          + ', sudah terlewat ' + selisih + '. ';
+      }
+      notice.style.display = 'flex';
+
+      if (!hasFoto) {
+        var keteranganEl = document.getElementById('keterangan_after');
+        if (keteranganEl && !keteranganEl.value.trim()) {
+          setTimeout(function() {
+            keteranganEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            keteranganEl.classList.add('keterangan-highlight');
+            setTimeout(function() {
+              keteranganEl.classList.remove('keterangan-highlight');
+            }, 2000);
+          }, 600);
+        }
+      }
     }
-    {% endif %}
+
+    if (overtimeWrap && overtimeTxt && diffMinutes >= threshold) {
+      overtimeWrap.style.display = 'block';
+      overtimeTxt.required = true;
+      overtimeTxt.classList.add('keterangan-highlight');
+      if (badge) {
+        badge.textContent = 'WAJIB — terlambat lebih dari 1 jam';
+        badge.style.color = '#f87171';
+      }
+    }
   }
-  {% endif %}
+
+  cekOvertime();
+  setInterval(cekOvertime, 60000);
+})();
+
+// ── Foto Tambahan — Modal AJAX ────────────────────────────────────────────
+(function() {
+  var modal      = document.getElementById('modalFotoTambahan');
+  var btnBuka    = document.getElementById('btnBukaTambahFoto');
+  var btnTutup   = document.getElementById('btnTutupModal');
+  var form       = document.getElementById('formFotoTambahanModal');
+  var inputCam   = document.getElementById('inputFotoTambahanCam');
+  var inputFile  = document.getElementById('inputFotoTambahanFile');
+  var previewBox = document.getElementById('previewFotoTambahan');
+  var previewImg = document.getElementById('imgPreviewTambahan');
+  var btnClear   = document.getElementById('btnClearTambahan');
+  var errorBox   = document.getElementById('errorFotoTambahan');
+  var btnSimpan  = document.getElementById('btnSimpanFotoTambahan');
+  var grid       = document.getElementById('fotoTambahanGrid');
+  var counter    = document.getElementById('fotoTambahanCounter');
+  var wrapTambah = document.getElementById('wrapTambahFoto');
+
+  // Semua nilai dari data-* — tidak ada template tag di dalam script
+  var uploadUrl  = pageData.uploadUrl;
+  var itemStatus = pageData.itemStatus;
+  var maksFoto   = parseInt(pageData.maksFoto, 10);
+  var csrfToken  = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+  if (!modal) return;
+
+  // ── Buka modal — append ke body untuk fix iOS Safari stacking context ──
+  function bukaNodal() {
+    if (modal.parentNode !== document.body) {
+      document.body.appendChild(modal);
+    }
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+  if (btnBuka) btnBuka.addEventListener('click', bukaNodal);
+
+  // ── Tutup modal ──
+  function tutupModal() {
+    modal.style.display = 'none';
+    document.body.style.overflow = '';
+    resetForm();
+  }
+  if (btnTutup) btnTutup.addEventListener('click', tutupModal);
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) tutupModal();
+  });
+
+  // ── Preview ──
+  function setupPreviewTambahan(input) {
+    if (!input) return;
+    input.addEventListener('change', function() {
+      if (!this.files || !this.files[0]) return;
+      if (input === inputCam  && inputFile) inputFile.value = '';
+      if (input === inputFile && inputCam)  inputCam.value  = '';
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        previewImg.src           = e.target.result;
+        previewBox.style.display = 'block';
+      };
+      reader.readAsDataURL(this.files[0]);
+    });
+  }
+  setupPreviewTambahan(inputCam);
+  setupPreviewTambahan(inputFile);
+
+  if (btnClear) {
+    btnClear.addEventListener('click', function() {
+      if (inputCam)  inputCam.value  = '';
+      if (inputFile) inputFile.value = '';
+      previewImg.src           = '';
+      previewBox.style.display = 'none';
+    });
+  }
+
+  function resetForm() {
+    if (form)      form.reset();
+    if (inputCam)  inputCam.value  = '';
+    if (inputFile) inputFile.value = '';
+    previewImg.src           = '';
+    previewBox.style.display = 'none';
+    errorBox.style.display   = 'none';
+    if (btnSimpan) {
+      btnSimpan.disabled  = false;
+      btnSimpan.innerHTML = '💾 Simpan Foto';
+    }
+  }
+
+  // ── Update counter & slot UI ──
+  function updateSlotUI(jumlah, sisa) {
+    if (counter) counter.textContent = jumlah + '/' + maksFoto + ' foto';
+    var sisaLabel = document.getElementById('sisaSlotLabel');
+    if (sisaLabel) sisaLabel.textContent = '(sisa ' + sisa + ' slot)';
+    if (sisa <= 0 && wrapTambah) {
+      wrapTambah.innerHTML =
+        '<div class="foto-penuh-notice">✓ Batas maksimal ' + maksFoto +
+        ' foto dokumentasi sudah tercapai.</div>';
+    }
+  }
+
+  // ── Bangun HTML satu item grid ──
+  // hapus_url sekarang datang dari server (data.hapus_url), bukan hardcode di JS
+  function appendFotoToGrid(data) {
+    if (!grid) return;
+    var canDelete = (itemStatus !== 'menunggu_approval' && itemStatus !== 'selesai');
+
+    var div = document.createElement('div');
+    div.className = 'ft-item';
+    div.id        = 'ft-item-' + data.foto_pk;
+    div.innerHTML =
+      '<a href="' + data.foto_url + '" target="_blank" class="ft-thumb">' +
+        '<img src="' + data.foto_url + '" alt="Foto tambahan">' +
+        '<div class="ft-overlay">' +
+          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">' +
+            '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>' +
+            '<circle cx="12" cy="12" r="3"/>' +
+          '</svg>' +
+        '</div>' +
+      '</a>' +
+      '<div class="ft-meta">' +
+        '<span class="ft-jenis">' + data.jenis_label + '</span>' +
+        (data.keterangan ? '<span class="ft-ket">' + data.keterangan + '</span>' : '') +
+      '</div>' +
+      (canDelete
+        ? '<button type="button" class="ft-hapus-btn ft-hapus-ajax"' +
+            ' data-foto-pk="' + data.foto_pk + '"' +
+            ' data-hapus-url="' + data.hapus_url + '"' +   // ← dari server
+            ' title="Hapus foto">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">' +
+              '<line x1="18" y1="6" x2="6" y2="18"/>' +
+              '<line x1="6" y1="6" x2="18" y2="18"/>' +
+            '</svg>' +
+          '</button>'
+        : '');
+
+    grid.appendChild(div);
+    attachHapusHandler(div.querySelector('.ft-hapus-ajax'));
+  }
+
+  // ── Submit form via fetch ──
+  if (form) {
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      errorBox.style.display = 'none';
+
+      var activeFile = null;
+      if (inputCam  && inputCam.files  && inputCam.files[0])  activeFile = inputCam.files[0];
+      if (inputFile && inputFile.files && inputFile.files[0]) activeFile = inputFile.files[0];
+
+      if (!activeFile) {
+        errorBox.textContent   = 'Pilih foto terlebih dahulu.';
+        errorBox.style.display = 'block';
+        return;
+      }
+
+      btnSimpan.disabled  = true;
+      btnSimpan.innerHTML = '⏳ Menyimpan...';
+
+      var fd = new FormData(form);
+      fd.delete('foto');
+      fd.append('foto', activeFile);
+      fd.set('csrfmiddlewaretoken', csrfToken);
+
+      fetch(uploadUrl, { method: 'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.success) {
+            appendFotoToGrid(data);
+            updateSlotUI(data.jumlah, data.sisa_slot);
+            tutupModal();
+          } else {
+            errorBox.textContent   = data.error || 'Gagal menyimpan foto.';
+            errorBox.style.display = 'block';
+            btnSimpan.disabled     = false;
+            btnSimpan.innerHTML    = '💾 Simpan Foto';
+          }
+        })
+        .catch(function() {
+          errorBox.textContent   = 'Terjadi kesalahan jaringan. Coba lagi.';
+          errorBox.style.display = 'block';
+          btnSimpan.disabled     = false;
+          btnSimpan.innerHTML    = '💾 Simpan Foto';
+        });
+    });
+  }
+
+  // ── Handler tombol hapus ──
+  function attachHapusHandler(btn) {
+    if (!btn) return;
+    btn.addEventListener('click', function() {
+      if (!confirm('Hapus foto ini?')) return;
+
+      var fotoPk   = this.dataset.fotoPk;
+      var hapusUrl = this.dataset.hapusUrl;
+
+      fetch(hapusUrl, {
+        method : 'POST',
+        headers: { 'X-CSRFToken': csrfToken },
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.success) {
+            var el = document.getElementById('ft-item-' + fotoPk);
+            if (el) el.remove();
+            updateSlotUI(data.jumlah, data.sisa_slot);
+
+            if (data.sisa_slot > 0 && wrapTambah) {
+              wrapTambah.innerHTML =
+                '<button type="button" class="btn-tambah-foto" id="btnBukaTambahFoto">' +
+                  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+                    '<circle cx="12" cy="12" r="10"/>' +
+                    '<line x1="12" y1="8" x2="12" y2="16"/>' +
+                    '<line x1="8" y1="12" x2="16" y2="12"/>' +
+                  '</svg>' +
+                  'Tambah Foto Dokumentasi' +
+                  '<span id="sisaSlotLabel" style="font-size:11px;opacity:.7;">' +
+                    '(sisa ' + data.sisa_slot + ' slot)' +
+                  '</span>' +
+                '</button>';
+              var newBtn = document.getElementById('btnBukaTambahFoto');
+              if (newBtn) newBtn.addEventListener('click', bukaNodal);
+            }
+          } else {
+            alert(data.error || 'Gagal menghapus foto.');
+          }
+        })
+        .catch(function() {
+          alert('Terjadi kesalahan saat menghapus.');
+        });
+    });
+  }
+
+  document.querySelectorAll('.ft-hapus-ajax').forEach(attachHapusHandler);
 })();
 </script>
 {% endblock %}

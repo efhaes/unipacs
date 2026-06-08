@@ -30,7 +30,7 @@ from outsourcing.views.supervisor import (
     staff_list as supervisor_staff_list, staff_create, staff_edit, staff_toggle_aktif, staff_delete,
     subarea_list, subarea_create, subarea_edit, subarea_delete,
     task_list, task_create, task_edit, task_delete,
-    customer_create,qr_list,qr_generate,qr_nonaktifkan,absensi_rekap,absensi_detail,izin_review
+    customer_create,qr_list,qr_generate,qr_nonaktifkan,absensi_rekap,absensi_detail,izin_review,lokasi_list,lokasi_tambah,lokasi_hapus,lokasi_toggle_aktif,lokasi_detail_json,
 )
 from outsourcing.views.staff import (
     dashboard_view as staff_dashboard,
@@ -47,7 +47,7 @@ from outsourcing.views.customer import (
     item_approval_list as customer_item_approval_list,
 )
 from outsourcing.views.reporting import generate_laporan_bulanan
-from outsourcing.views.supervisor.absensi import api_update_overtime_status
+from outsourcing.views.supervisor.absensi import api_update_overtime_status, lokasi_edit
 urlpatterns = [
     # Auth: login, logout, dashboard redirect
     path('', login_view, name='login'),
@@ -142,6 +142,12 @@ urlpatterns = [
         generate_laporan_bulanan, name='download_laporan_bulanan'),
     path('supervisor/absensi/<int:pk>/overtime-status/',api_update_overtime_status,name='supervisor_absensi_overtime_status',),
     path('supervisor/absensi/izin/<int:pk>/review/', izin_review, name='supervisor_izin_review'),
+    path('lokasi/',                lokasi_list,         name='supervisor_lokasi_list'),
+    path('lokasi/tambah/',         lokasi_tambah,       name='supervisor_lokasi_tambah'),
+    path('lokasi/<int:pk>/edit/',  lokasi_edit,         name='supervisor_lokasi_edit'),
+    path('lokasi/<int:pk>/hapus/', lokasi_hapus,        name='supervisor_lokasi_hapus'),
+    path('lokasi/<int:pk>/toggle/',lokasi_toggle_aktif, name='supervisor_lokasi_toggle'),
+    path('lokasi/<int:pk>/json/',  lokasi_detail_json,  name='supervisor_lokasi_json'),
 
 
     # Staff
@@ -162,8 +168,8 @@ urlpatterns = [
     path("staff/item/foto-tambahan/<int:foto_pk>/hapus/ajax/",  item_hapus_foto_tambahan_ajax,name="staff_item_foto_tambahan_hapus_ajax"),
 
    # Customer
-path('customer/', customer_dashboard, name='customer_dashboard'),
-path('customer/laporan/', customer_laporan_list, name='customer_laporan_list'),
-path('customer/laporan/<int:pk>/', customer_laporan_detail, name='customer_laporan_detail'),
-path('customer/item/<int:pk>/approve/', customer_item_approve, name='customer_item_approve'),  # ← tambah ini
+    path('customer/', customer_dashboard, name='customer_dashboard'),
+    path('customer/laporan/', customer_laporan_list, name='customer_laporan_list'),
+    path('customer/laporan/<int:pk>/', customer_laporan_detail, name='customer_laporan_detail'),
+    path('customer/item/<int:pk>/approve/', customer_item_approve, name='customer_item_approve'),  # ← tambah ini
 ]

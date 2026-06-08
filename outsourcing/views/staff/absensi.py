@@ -1,3 +1,5 @@
+# views.py (staff)
+
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponseForbidden, JsonResponse
 from django.urls import reverse
@@ -7,7 +9,7 @@ from django.utils.timezone import localtime
 from outsourcing.models import (
     QRAbsensi, QRTypeChoices,
     Absensi, AbsensiStatusChoices, OvertimeStatusChoices,
-    StaffSupervisor,IzinStaff,
+    StaffSupervisor, IzinStaff,
 )
 from outsourcing.decorators import staff_required
 
@@ -19,16 +21,11 @@ def qr_scan_page(request):
 
 @staff_required
 def qr_scan_landing(request, token):
-    """
-    Selalu return JsonResponse — semua feedback ditampilkan via modal di qr_scan.html.
-    Non-AJAX langsung redirect ke scan page (edge case: user buka URL manual).
-    """
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
-    # Non-AJAX (buka URL langsung di browser) → redirect ke scan page
     if not is_ajax:
         from django.shortcuts import redirect
-        return redirect('qr_scan_page')  # sesuaikan dengan nama url kamu
+        return redirect('qr_scan_page')
 
     if not request.user.is_staff_lapangan:
         return JsonResponse({'success': False, 'error': 'Hanya staff lapangan yang bisa absen.'})
@@ -59,6 +56,41 @@ def qr_scan_landing(request, token):
             'supervisor': qr_obj.supervisor.nama_lengkap or qr_obj.supervisor.username,
         })
 
+    # ── Validasi Lokasi (jika QR punya lokasi) ────────────────────────
+    lat_staff = None
+    lon_staff = None
+
+    if qr_obj.lokasi:
+        lat_staff = request.POST.get('lat') or request.GET.get('lat')
+        lon_staff = request.POST.get('lon') or request.GET.get('lon')
+
+        if not lat_staff or not lon_staff:
+            return JsonResponse({
+                'success'      : False,
+                'need_location': True,
+                'error'        : 'Izinkan akses lokasi untuk absen di titik ini.',
+                'tipe'         : qr_obj.tipe,
+            })
+
+        try:
+            valid_lokasi, jarak = qr_obj.lokasi.validasi_koordinat(lat_staff, lon_staff)
+        except (ValueError, TypeError):
+            return JsonResponse({
+                'success': False,
+                'error'  : 'Format koordinat tidak valid.',
+                'tipe'   : qr_obj.tipe,
+            })
+
+        if not valid_lokasi:
+            return JsonResponse({
+                'success': False,
+                'error'  : f'Kamu berada {jarak:.0f}m dari lokasi absen. Maksimal {qr_obj.lokasi.radius_meter}m.',
+                'tipe'   : qr_obj.tipe,
+                'jarak'  : jarak,
+                'radius' : qr_obj.lokasi.radius_meter,
+            })
+
+    # ── Get or create absensi ──────────────────────────────────────────
     absensi, _ = Absensi.objects.get_or_create(
         staff   = request.user,
         tanggal = hari_ini,
@@ -71,7 +103,7 @@ def qr_scan_landing(request, token):
         absensi.qr_pulang = qr_obj
     absensi.save(update_fields=['qr_masuk', 'qr_pulang'])
 
-    # ── QR MASUK ──────────────────────────────
+    # ── QR MASUK ──────────────────────────────────────────────────────
     if qr_obj.tipe == QRTypeChoices.MASUK:
         if absensi.sudah_masuk:
             return JsonResponse({
@@ -82,9 +114,16 @@ def qr_scan_landing(request, token):
                 'waktu'        : localtime(absensi.waktu_masuk).strftime('%H:%M'),
             })
 
+        update_fields = ['waktu_masuk', 'status']
         absensi.waktu_masuk = timezone.now()
         absensi.status      = AbsensiStatusChoices.MASUK
-        absensi.save(update_fields=['waktu_masuk', 'status'])
+
+        if lat_staff and lon_staff:
+            absensi.lat_masuk = lat_staff
+            absensi.lon_masuk = lon_staff
+            update_fields += ['lat_masuk', 'lon_masuk']
+
+        absensi.save(update_fields=update_fields)
 
         return JsonResponse({
             'success'   : True,
@@ -94,7 +133,7 @@ def qr_scan_landing(request, token):
             'supervisor': qr_obj.supervisor.nama_lengkap or qr_obj.supervisor.username,
         })
 
-    # ── QR PULANG ─────────────────────────────
+    # ── QR PULANG ─────────────────────────────────────────────────────
     elif qr_obj.tipe == QRTypeChoices.PULANG:
 
         if not absensi.sudah_masuk:
@@ -126,7 +165,7 @@ def qr_scan_landing(request, token):
             ot_menit = selisih if selisih >= Absensi.THRESHOLD_OT_MENIT else 0
             is_ot    = ot_menit > 0
 
-        # ── GET → kirim flag, tunggu input dari modal ──
+        # ── GET → kirim flag, tunggu input dari modal ──────────────
         if request.method == 'GET':
             if is_pulang_awal:
                 return JsonResponse({
@@ -143,9 +182,8 @@ def qr_scan_landing(request, token):
                     'overtime_str'    : f"{ot_menit // 60}j {ot_menit % 60}m",
                     'jam_pulang_resmi': localtime(jam_pulang_resmi).strftime('%H:%M'),
                 })
-            # Tepat waktu — fall through ke simpan
 
-        # ── POST / GET tepat waktu → simpan ────
+        # ── POST / GET tepat waktu → simpan ────────────────────────
         update_fields = ['waktu_pulang', 'status']
 
         if is_pulang_awal:
@@ -168,13 +206,19 @@ def qr_scan_landing(request, token):
                 })
             absensi.is_overtime     = True
             absensi.overtime_status = OvertimeStatusChoices.BELUM_REVIEW
-            absensi.status         = AbsensiStatusChoices.OVERTIME
+            absensi.status          = AbsensiStatusChoices.OVERTIME
             absensi.catatan         = keterangan_ot
-            update_fields += ['is_overtime', 'overtime_status', 'catatan'] 
+            update_fields += ['is_overtime', 'overtime_status', 'catatan']
 
         absensi.waktu_pulang = now
         if not is_ot:
             absensi.status = AbsensiStatusChoices.PULANG
+
+        if lat_staff and lon_staff:
+            absensi.lat_pulang = lat_staff
+            absensi.lon_pulang = lon_staff
+            update_fields += ['lat_pulang', 'lon_pulang']
+
         absensi.save(update_fields=update_fields)
 
         pesan = 'Absen pulang berhasil!'
@@ -197,7 +241,7 @@ def qr_scan_landing(request, token):
 
 @staff_required
 def absensi_riwayat(request):
-    today = timezone.localdate()
+    today        = timezone.localdate()
     bulan_filter = request.GET.get('bulan', '').strip()
     if not bulan_filter:
         bulan_filter = today.strftime('%Y-%m')
@@ -211,7 +255,11 @@ def absensi_riwayat(request):
     absensi_qs = (
         Absensi.objects
         .filter(staff=request.user, tanggal__year=tahun, tanggal__month=bulan)
-        .select_related('qr_masuk', 'qr_masuk__supervisor', 'qr_pulang', 'qr_pulang__supervisor', 'overtime_reviewed_by')
+        .select_related(
+            'qr_masuk', 'qr_masuk__supervisor',
+            'qr_pulang', 'qr_pulang__supervisor',
+            'overtime_reviewed_by',
+        )
         .order_by('-tanggal')
     )
 
@@ -221,27 +269,26 @@ def absensi_riwayat(request):
         .dates('tanggal', 'month', order='DESC')
     )
 
-    # Tambahan: semua izin milik staff ini
     izin_qs = (
         IzinStaff.objects
         .filter(staff=request.user)
         .order_by('-dibuat_pada')
     )
 
-    active_tab = request.GET.get('tab', 'absensi')
+    active_tab       = request.GET.get('tab', 'absensi')
     ada_izin_pending = izin_qs.filter(status='pending').exists()
 
     return render(request, 'staff/absensi/riwayat.html', {
-        'absensi_qs'     : absensi_qs,
-        'total'          : absensi_qs.count(),
-        'total_masuk'    : absensi_qs.filter(waktu_masuk__isnull=False).count(),
-        'total_pulang'   : absensi_qs.filter(waktu_pulang__isnull=False).count(),
-        'total_overtime' : absensi_qs.filter(is_overtime=True).count(),
-        'bulan_filter'   : bulan_filter,
-        'bulan_tersedia' : bulan_tersedia,
-        'bulan_aktif'    : f"{tahun}-{bulan:02d}",
-        'izin_qs'        : izin_qs,
-        'active_tab'     : active_tab,
+        'absensi_qs'      : absensi_qs,
+        'total'           : absensi_qs.count(),
+        'total_masuk'     : absensi_qs.filter(waktu_masuk__isnull=False).count(),
+        'total_pulang'    : absensi_qs.filter(waktu_pulang__isnull=False).count(),
+        'total_overtime'  : absensi_qs.filter(is_overtime=True).count(),
+        'bulan_filter'    : bulan_filter,
+        'bulan_tersedia'  : bulan_tersedia,
+        'bulan_aktif'     : f"{tahun}-{bulan:02d}",
+        'izin_qs'         : izin_qs,
+        'active_tab'      : active_tab,
         'ada_izin_pending': ada_izin_pending,
     })
 
@@ -273,4 +320,3 @@ def api_today_status(request):
         'last_checkin'    : last_checkin,
         'this_month_count': this_month_count,
     })
-

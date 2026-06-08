@@ -17,7 +17,7 @@ from outsourcing.models import (
     QRAbsensi, QRTypeChoices,
     Absensi, OvertimeStatusChoices,
     StaffSupervisor, IzinStaff, StatusIzinChoices,
-    User,AbsensiStatusChoices,StatusHarianChoices
+    User,AbsensiStatusChoices,StatusHarianChoices,LokasiAbsensi
 )
 
 
@@ -87,10 +87,17 @@ def qr_generate(request):
         supervisor=supervisor, tanggal=hari_ini, tipe=QRTypeChoices.PULANG,
     ).first()
 
+    # Ambil semua lokasi aktif milik supervisor ini
+    lokasi_list = LokasiAbsensi.objects.filter(
+        supervisor=supervisor,
+        is_active=True,
+    ).order_by('nama')
+
     # ── AJAX POST ─────────────────────────────
     if request.method == 'POST' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         jam_masuk_str  = request.POST.get('jam_masuk', '').strip()
         jam_pulang_str = request.POST.get('jam_pulang', '').strip()
+        lokasi_id      = request.POST.get('lokasi_id', '').strip()
 
         if not jam_masuk_str or not jam_pulang_str:
             return JsonResponse({'ok': False, 'error': 'Jam masuk dan jam pulang wajib diisi.'})
@@ -110,30 +117,50 @@ def qr_generate(request):
         if jam_pulang_dt <= jam_masuk_dt:
             return JsonResponse({'ok': False, 'error': 'Jam pulang harus setelah jam masuk.'})
 
+        # ── Resolve lokasi ──────────────────────────────────────────── #
+        # Kosong / "0" → QR tanpa validasi lokasi
+        # Ada ID      → validasi supervisor punya lokasi itu
+        lokasi_obj = None
+        if lokasi_id and lokasi_id != '0':
+            try:
+                lokasi_obj = LokasiAbsensi.objects.get(
+                    pk=lokasi_id,
+                    supervisor=supervisor,
+                    is_active=True,
+                )
+            except LokasiAbsensi.DoesNotExist:
+                return JsonResponse({'ok': False, 'error': 'Lokasi tidak ditemukan.'})
+
+        # ── Upsert QR Masuk ─────────────────────────────────────────── #
         if qr_masuk:
             qr_masuk.jam_berlaku_mulai = jam_masuk_dt
             qr_masuk.berlaku_hingga    = akhir_hari
-            qr_masuk.save(update_fields=['jam_berlaku_mulai', 'berlaku_hingga'])
+            qr_masuk.lokasi            = lokasi_obj
+            qr_masuk.save(update_fields=['jam_berlaku_mulai', 'berlaku_hingga', 'lokasi'])
         else:
             qr_masuk = QRAbsensi.objects.create(
-                supervisor=supervisor,
-                tanggal=hari_ini,
-                tipe=QRTypeChoices.MASUK,
-                berlaku_hingga=akhir_hari,
-                jam_berlaku_mulai=jam_masuk_dt,
+                supervisor        = supervisor,
+                tanggal           = hari_ini,
+                tipe              = QRTypeChoices.MASUK,
+                berlaku_hingga    = akhir_hari,
+                jam_berlaku_mulai = jam_masuk_dt,
+                lokasi            = lokasi_obj,
             )
 
+        # ── Upsert QR Pulang ────────────────────────────────────────── #
         if qr_pulang:
             qr_pulang.jam_berlaku_mulai = jam_pulang_dt
             qr_pulang.berlaku_hingga    = akhir_hari
-            qr_pulang.save(update_fields=['jam_berlaku_mulai', 'berlaku_hingga'])
+            qr_pulang.lokasi            = lokasi_obj
+            qr_pulang.save(update_fields=['jam_berlaku_mulai', 'berlaku_hingga', 'lokasi'])
         else:
             qr_pulang = QRAbsensi.objects.create(
-                supervisor=supervisor,
-                tanggal=hari_ini,
-                tipe=QRTypeChoices.PULANG,
-                berlaku_hingga=akhir_hari,
-                jam_berlaku_mulai=jam_pulang_dt,
+                supervisor        = supervisor,
+                tanggal           = hari_ini,
+                tipe              = QRTypeChoices.PULANG,
+                berlaku_hingga    = akhir_hari,
+                jam_berlaku_mulai = jam_pulang_dt,
+                lokasi            = lokasi_obj,
             )
 
         # ── Auto-create Absensi kosong untuk semua staff ──────────────
@@ -154,18 +181,20 @@ def qr_generate(request):
         ]
         if absensi_bulk:
             Absensi.objects.bulk_create(absensi_bulk, ignore_conflicts=True)
-        # ──────────────────────────────────────────────────────────────
 
         url_masuk  = request.build_absolute_uri(f'/absensi/scan/{qr_masuk.token}/')
         url_pulang = request.build_absolute_uri(f'/absensi/scan/{qr_pulang.token}/')
 
         return JsonResponse({
-            'ok'           : True,
-            'qr_masuk_b64' : _qr_to_base64(url_masuk),
-            'qr_pulang_b64': _qr_to_base64(url_pulang),
-            'url_masuk'    : url_masuk,
-            'url_pulang'   : url_pulang,
-            'staff_disiapkan': len(absensi_bulk),  # info berapa record baru dibuat
+            'ok'              : True,
+            'qr_masuk_b64'    : _qr_to_base64(url_masuk),
+            'qr_pulang_b64'   : _qr_to_base64(url_pulang),
+            'url_masuk'       : url_masuk,
+            'url_pulang'      : url_pulang,
+            'staff_disiapkan' : len(absensi_bulk),
+            # Info lokasi untuk ditampilkan di UI setelah generate
+            'lokasi_nama'     : lokasi_obj.nama if lokasi_obj else None,
+            'lokasi_radius'   : lokasi_obj.radius_meter if lokasi_obj else None,
         })
 
     # ── GET ───────────────────────────────────
@@ -180,15 +209,18 @@ def qr_generate(request):
         qr_pulang_b64 = _qr_to_base64(url_pulang)
 
     return render(request, 'supervisor/absensi/qr_generate.html', {
-        'hari_ini'     : hari_ini,
-        'qr_masuk'     : qr_masuk,
-        'qr_pulang'    : qr_pulang,
-        'qr_masuk_b64' : qr_masuk_b64,
-        'qr_pulang_b64': qr_pulang_b64,
-        'url_masuk'    : url_masuk,
-        'url_pulang'   : url_pulang,
-        'supervisor'   : supervisor,
+        'hari_ini'      : hari_ini,
+        'qr_masuk'      : qr_masuk,
+        'qr_pulang'     : qr_pulang,
+        'qr_masuk_b64'  : qr_masuk_b64,
+        'qr_pulang_b64' : qr_pulang_b64,
+        'url_masuk'     : url_masuk,
+        'url_pulang'    : url_pulang,
+        'supervisor'    : supervisor,
+        'lokasi_list'   : lokasi_list,          # ← baru: untuk dropdown di template
+        'lokasi_aktif'  : qr_masuk.lokasi if qr_masuk else None,  # ← lokasi QR hari ini
     })
+
 
 @supervisor_or_kepala_required
 def absensi_rekap(request):
@@ -503,3 +535,167 @@ def izin_review(request, pk):
     label = 'disetujui' if action == 'approved' else 'ditolak'
     messages.success(request, f'Izin {izin.staff.nama_lengkap} berhasil {label}.')
     return redirect(request.META.get('HTTP_REFERER', 'supervisor_absensi_rekap'))
+
+
+# ─────────────────────────────────────────────
+# Lokasi Absensi — CRUD
+# ─────────────────────────────────────────────
+
+from outsourcing.forms import LokasiAbsensiForm   # sesuaikan path import
+
+
+@supervisor_or_kepala_required
+def lokasi_list(request):
+    supervisor  = _get_supervisor(request)
+    lokasi_qs   = (
+        LokasiAbsensi.objects
+        .filter(supervisor=supervisor)
+        .order_by('nama')
+    )
+    return render(request, 'supervisor/lokasi/list.html', {
+        'lokasi_qs' : lokasi_qs,
+        'supervisor': supervisor,
+    })
+
+
+@supervisor_or_kepala_required
+def lokasi_tambah(request):
+    supervisor = _get_supervisor(request)
+
+    if request.method == 'POST':
+        # ── AJAX: terima koordinat dari pin map ──
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            form = LokasiAbsensiForm(request.POST)
+            if form.is_valid():
+                lokasi          = form.save(commit=False)
+                lokasi.supervisor = supervisor
+                lokasi.save()
+                return JsonResponse({
+                    'ok'    : True,
+                    'pk'    : lokasi.pk,
+                    'nama'  : lokasi.nama,
+                    'radius': lokasi.radius_meter,
+                })
+            return JsonResponse({'ok': False, 'errors': form.errors})
+
+        # ── Normal POST ──
+        form = LokasiAbsensiForm(request.POST)
+        if form.is_valid():
+            lokasi            = form.save(commit=False)
+            lokasi.supervisor = supervisor
+            lokasi.save()
+            messages.success(request, f'Lokasi "{lokasi.nama}" berhasil ditambahkan.')
+            return redirect('supervisor_lokasi_list')
+    else:
+        form = LokasiAbsensiForm()
+
+    return render(request, 'supervisor/lokasi/form.html', {
+        'form'      : form,
+        'mode'      : 'tambah',
+        'supervisor': supervisor,
+    })
+
+
+@supervisor_or_kepala_required
+def lokasi_edit(request, pk):
+    supervisor = _get_supervisor(request)
+    lokasi     = get_object_or_404(LokasiAbsensi, pk=pk, supervisor=supervisor)
+
+    if request.method == 'POST':
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            form = LokasiAbsensiForm(request.POST, instance=lokasi)
+            if form.is_valid():
+                form.save()
+                return JsonResponse({
+                    'ok'    : True,
+                    'pk'    : lokasi.pk,
+                    'nama'  : lokasi.nama,
+                    'radius': lokasi.radius_meter,
+                })
+            return JsonResponse({'ok': False, 'errors': form.errors})
+
+        form = LokasiAbsensiForm(request.POST, instance=lokasi)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Lokasi "{lokasi.nama}" berhasil diperbarui.')
+            return redirect('supervisor_lokasi_list')
+    else:
+        form = LokasiAbsensiForm(instance=lokasi)
+
+    return render(request, 'supervisor/lokasi/form.html', {
+        'form'      : form,
+        'lokasi'    : lokasi,
+        'mode'      : 'edit',
+        'supervisor': supervisor,
+    })
+
+
+@supervisor_or_kepala_required
+@require_POST
+def lokasi_hapus(request, pk):
+    supervisor = _get_supervisor(request)
+    lokasi     = get_object_or_404(LokasiAbsensi, pk=pk, supervisor=supervisor)
+
+    # Cek apakah lokasi masih dipakai oleh QR aktif hari ini
+    qr_aktif = QRAbsensi.objects.filter(
+        lokasi   = lokasi,
+        tanggal  = timezone.localdate(),
+        is_active= True,
+    ).exists()
+
+    if qr_aktif:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'ok'   : False,
+                'error': 'Lokasi masih digunakan oleh QR aktif hari ini. Nonaktifkan QR terlebih dahulu.',
+            })
+        messages.error(request, 'Lokasi masih digunakan oleh QR aktif hari ini.')
+        return redirect('supervisor_lokasi_list')
+
+    nama = lokasi.nama
+    lokasi.delete()
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'ok': True, 'pk': pk, 'nama': nama})
+
+    messages.success(request, f'Lokasi "{nama}" berhasil dihapus.')
+    return redirect('supervisor_lokasi_list')
+
+
+@supervisor_or_kepala_required
+@require_POST
+def lokasi_toggle_aktif(request, pk):
+    """Toggle is_active via AJAX."""
+    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+        return JsonResponse({'ok': False}, status=400)
+
+    supervisor = _get_supervisor(request)
+    lokasi     = get_object_or_404(LokasiAbsensi, pk=pk, supervisor=supervisor)
+    lokasi.is_active = not lokasi.is_active
+    lokasi.save(update_fields=['is_active'])
+
+    return JsonResponse({
+        'ok'       : True,
+        'is_active': lokasi.is_active,
+        'label'    : 'Aktif' if lokasi.is_active else 'Nonaktif',
+    })
+
+
+@supervisor_or_kepala_required
+def lokasi_detail_json(request, pk):
+    """Endpoint untuk mengambil data lokasi (dipakai map preview)."""
+    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+        return JsonResponse({'ok': False}, status=400)
+
+    supervisor = _get_supervisor(request)
+    lokasi     = get_object_or_404(LokasiAbsensi, pk=pk, supervisor=supervisor)
+
+    return JsonResponse({
+        'ok'          : True,
+        'pk'          : lokasi.pk,
+        'nama'        : lokasi.nama,
+        'latitude'    : float(lokasi.latitude),
+        'longitude'   : float(lokasi.longitude),
+        'radius_meter': lokasi.radius_meter,
+        'is_active'   : lokasi.is_active,
+    })

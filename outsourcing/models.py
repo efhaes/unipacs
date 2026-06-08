@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 import uuid
 from django.utils import timezone
-
+import math
 
 # ============================================================
 # MANAGER
@@ -792,6 +792,60 @@ class FotoItemKegiatan(models.Model):
         return f"Foto {self.get_jenis_display()} — {self.item.nama_item}"
 
 
+
+def hitung_jarak_meter(lat1, lon1, lat2, lon2) -> float:
+    """
+    Hitung jarak dua koordinat (decimal degrees) dalam meter.
+    Menggunakan formula Haversine — akurasi cukup untuk radius 50–500m.
+    """
+    R = 6_371_000  # radius bumi (meter)
+    phi1     = math.radians(float(lat1))
+    phi2     = math.radians(float(lat2))
+    d_phi    = math.radians(float(lat2) - float(lat1))
+    d_lambda = math.radians(float(lon2) - float(lon1))
+ 
+    a = (
+        math.sin(d_phi / 2) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
+    )
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+ 
+ 
+# ---------------------------------------------------------------------------
+# Model — Lokasi Absensi
+# ---------------------------------------------------------------------------
+ 
+class LokasiAbsensi(models.Model):
+    supervisor = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='lokasi_absensi',       # .all() → banyak lokasi
+        limit_choices_to={'role': RoleChoices.SUPERVISOR},
+    )
+    nama         = models.CharField(max_length=120)
+    latitude     = models.DecimalField(max_digits=10, decimal_places=7)
+    longitude    = models.DecimalField(max_digits=10, decimal_places=7)
+    radius_meter = models.PositiveIntegerField(default=100)
+    is_active    = models.BooleanField(default=True)
+    diperbarui   = models.DateTimeField(auto_now=True)
+    dibuat_pada  = models.DateTimeField(auto_now_add=True)
+ 
+    class Meta:
+        verbose_name        = 'Lokasi Absensi'
+        verbose_name_plural = 'Lokasi Absensi'
+        ordering            = ['nama']
+ 
+    def __str__(self):
+        return f"{self.nama} (±{self.radius_meter}m)"
+ 
+    def validasi_koordinat(self, lat_staff, lon_staff) -> tuple[bool, float]:
+        """
+        Return (valid: bool, jarak_meter: float).
+        valid = True jika staff berada dalam radius.
+        """
+        jarak = hitung_jarak_meter(self.latitude, self.longitude, lat_staff, lon_staff)
+        return jarak <= self.radius_meter, round(jarak, 1)
+
 class OvertimeStatusChoices(models.TextChoices):
     BELUM_REVIEW = 'belum_review', 'Belum Direview'
     PAID         = 'paid',         'Dibayar'
@@ -819,6 +873,7 @@ class QRTypeChoices(models.TextChoices):
 
 
 class QRAbsensi(models.Model):
+    lokasi = models.ForeignKey('LokasiAbsensi',on_delete=models.SET_NULL,null=True, blank=True,related_name='qr_codes',help_text="Kosongkan jika absensi tidak perlu validasi lokasi.",)
     supervisor     = models.ForeignKey(User, on_delete=models.CASCADE, related_name='qr_dibuat', limit_choices_to={'role': RoleChoices.SUPERVISOR})
     token          = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     tanggal        = models.DateField(default=timezone.localdate)

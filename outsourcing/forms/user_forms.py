@@ -262,23 +262,62 @@ class EditKepalaSupervisorForm(forms.ModelForm):
 class EditSupervisorForm(forms.ModelForm):
     """Edit Supervisor oleh Kepala Supervisor."""
 
+    password_baru = forms.CharField(
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Kosongkan jika tidak ingin mengubah',
+            'id': 'id_password_baru',
+        }),
+        label='Password Baru',
+        required=False,
+    )
+    konfirmasi_password = forms.CharField(
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ulangi password baru',
+            'id': 'id_konfirmasi_password',
+        }),
+        label='Konfirmasi Password Baru',
+        required=False,
+    )
+
     class Meta:
         model  = User
         fields = ['nama_lengkap', 'jenis_kelamin', 'nik', 'telepon', 'foto_profil', 'is_active']
         widgets = {
-            'nama_lengkap': forms.TextInput(attrs={'class': 'form-control'}),
+            'nama_lengkap' : forms.TextInput(attrs={'class': 'form-control'}),
             'jenis_kelamin': forms.Select(attrs={'class': 'form-control'}),
-            'nik'         : forms.TextInput(attrs={'class': 'form-control'}),
-            'telepon'     : forms.TextInput(attrs={'class': 'form-control'}),
+            'nik'          : forms.TextInput(attrs={'class': 'form-control'}),
+            'telepon'      : forms.TextInput(attrs={'class': 'form-control'}),
         }
         labels = {
-            'nama_lengkap': 'Nama Lengkap',
+            'nama_lengkap' : 'Nama Lengkap',
             'jenis_kelamin': 'Jenis Kelamin',
-            'nik'         : 'NIK / ID Karyawan',
-            'telepon'     : 'Telepon',
-            'foto_profil' : 'Foto Profil',
+            'nik'          : 'NIK / ID Karyawan',
+            'telepon'      : 'Telepon',
+            'foto_profil'  : 'Foto Profil',
             'is_active'    : 'Aktif',
         }
+
+        def clean(self):
+            cleaned_data = super().clean()
+            pw1 = cleaned_data.get('password_baru')
+            pw2 = cleaned_data.get('konfirmasi_password')
+            # ← hanya cek kalau salah satu diisi
+            if pw1 or pw2:
+                if pw1 != pw2:
+                    raise forms.ValidationError('Password baru dan konfirmasi tidak cocok.')
+            return cleaned_data
+
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        pw = self.cleaned_data.get('password_baru')
+        if pw:
+            user.set_password(pw)
+        if commit:
+            user.save()
+        return user
 
 
 class EditStaffForm(forms.ModelForm):

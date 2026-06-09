@@ -17,8 +17,9 @@ from outsourcing.models import (
     QRAbsensi, QRTypeChoices,
     Absensi, OvertimeStatusChoices,
     StaffSupervisor, IzinStaff, StatusIzinChoices,
-    User,AbsensiStatusChoices,StatusHarianChoices,LokasiAbsensi
+    User, AbsensiStatusChoices, StatusHarianChoices, LokasiAbsensi,
 )
+from outsourcing.forms import LokasiAbsensiForm
 
 
 # ─────────────────────────────────────────────
@@ -33,17 +34,12 @@ def _qr_to_base64(url: str) -> str:
 
 
 def _get_supervisor(request):
-    """
-    Supervisor biasa → dirinya sendiri.
-    Kepala supervisor → supervisor yang dipilih di session (request.supervisor_context).
-    """
     if request.user.role == 'supervisor':
         return request.user
     return request.supervisor_context
 
 
 def _staff_ids(supervisor):
-    """Ambil staff_ids berdasarkan supervisor context."""
     return StaffSupervisor.objects.filter(
         supervisor=supervisor,
         is_active=True,
@@ -60,6 +56,7 @@ def qr_list(request):
     qr_qs = (
         QRAbsensi.objects
         .filter(supervisor=supervisor)
+        .select_related('lokasi')
         .order_by('-tanggal', 'tipe')
     )
     return render(request, 'supervisor/absensi/qr_list.html', {
@@ -87,7 +84,6 @@ def qr_generate(request):
         supervisor=supervisor, tanggal=hari_ini, tipe=QRTypeChoices.PULANG,
     ).first()
 
-    # Ambil semua lokasi aktif milik supervisor ini
     lokasi_list = LokasiAbsensi.objects.filter(
         supervisor=supervisor,
         is_active=True,
@@ -117,9 +113,6 @@ def qr_generate(request):
         if jam_pulang_dt <= jam_masuk_dt:
             return JsonResponse({'ok': False, 'error': 'Jam pulang harus setelah jam masuk.'})
 
-        # ── Resolve lokasi ──────────────────────────────────────────── #
-        # Kosong / "0" → QR tanpa validasi lokasi
-        # Ada ID      → validasi supervisor punya lokasi itu
         lokasi_obj = None
         if lokasi_id and lokasi_id != '0':
             try:
@@ -131,7 +124,6 @@ def qr_generate(request):
             except LokasiAbsensi.DoesNotExist:
                 return JsonResponse({'ok': False, 'error': 'Lokasi tidak ditemukan.'})
 
-        # ── Upsert QR Masuk ─────────────────────────────────────────── #
         if qr_masuk:
             qr_masuk.jam_berlaku_mulai = jam_masuk_dt
             qr_masuk.berlaku_hingga    = akhir_hari
@@ -147,7 +139,6 @@ def qr_generate(request):
                 lokasi            = lokasi_obj,
             )
 
-        # ── Upsert QR Pulang ────────────────────────────────────────── #
         if qr_pulang:
             qr_pulang.jam_berlaku_mulai = jam_pulang_dt
             qr_pulang.berlaku_hingga    = akhir_hari
@@ -163,7 +154,6 @@ def qr_generate(request):
                 lokasi            = lokasi_obj,
             )
 
-        # ── Auto-create Absensi kosong untuk semua staff ──────────────
         staff_ids = list(_staff_ids(supervisor))
         existing  = set(
             Absensi.objects
@@ -192,7 +182,6 @@ def qr_generate(request):
             'url_masuk'       : url_masuk,
             'url_pulang'      : url_pulang,
             'staff_disiapkan' : len(absensi_bulk),
-            # Info lokasi untuk ditampilkan di UI setelah generate
             'lokasi_nama'     : lokasi_obj.nama if lokasi_obj else None,
             'lokasi_radius'   : lokasi_obj.radius_meter if lokasi_obj else None,
         })
@@ -209,27 +198,57 @@ def qr_generate(request):
         qr_pulang_b64 = _qr_to_base64(url_pulang)
 
     return render(request, 'supervisor/absensi/qr_generate.html', {
-        'hari_ini'      : hari_ini,
-        'qr_masuk'      : qr_masuk,
-        'qr_pulang'     : qr_pulang,
-        'qr_masuk_b64'  : qr_masuk_b64,
-        'qr_pulang_b64' : qr_pulang_b64,
-        'url_masuk'     : url_masuk,
-        'url_pulang'    : url_pulang,
-        'supervisor'    : supervisor,
-        'lokasi_list'   : lokasi_list,          # ← baru: untuk dropdown di template
-        'lokasi_aktif'  : qr_masuk.lokasi if qr_masuk else None,  # ← lokasi QR hari ini
+        'hari_ini'     : hari_ini,
+        'qr_masuk'     : qr_masuk,
+        'qr_pulang'    : qr_pulang,
+        'qr_masuk_b64' : qr_masuk_b64,
+        'qr_pulang_b64': qr_pulang_b64,
+        'url_masuk'    : url_masuk,
+        'url_pulang'   : url_pulang,
+        'supervisor'   : supervisor,
+        'lokasi_list'  : lokasi_list,
+        'lokasi_aktif' : qr_masuk.lokasi if qr_masuk else None,
     })
 
 
+# ─────────────────────────────────────────────
+# QR — Nonaktifkan
+# ─────────────────────────────────────────────
+
+@supervisor_or_kepala_required
+@require_POST
+def qr_nonaktifkan(request, pk):
+    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+        return JsonResponse({'ok': False, 'error': 'Request tidak valid.'}, status=400)
+
+    supervisor = _get_supervisor(request)
+    qr_obj     = get_object_or_404(QRAbsensi, pk=pk, supervisor=supervisor)
+
+    if not qr_obj.is_active:
+        return JsonResponse({'ok': False, 'error': 'QR sudah tidak aktif.'})
+
+    qr_obj.is_active = False
+    qr_obj.save(update_fields=['is_active'])
+
+    return JsonResponse({
+        'ok'     : True,
+        'message': f'QR {qr_obj.get_tipe_display()} berhasil dinonaktifkan.',
+        'qr_pk'  : qr_obj.pk,
+    })
+
+
+# ─────────────────────────────────────────────
+# Rekap Absensi
+# ─────────────────────────────────────────────
+
 @supervisor_or_kepala_required
 def absensi_rekap(request):
-    supervisor     = _get_supervisor(request)
-    ids            = _staff_ids(supervisor)
-    bulan_filter   = request.GET.get('bulan', '').strip()
-    search_nama    = request.GET.get('q', '').strip()
-    filter_hari_ini = request.GET.get('hari_ini', '').strip()  # ← tambah ini
-    bulan_sekarang = date.today().strftime('%Y-%m')
+    supervisor      = _get_supervisor(request)
+    ids             = _staff_ids(supervisor)
+    bulan_filter    = request.GET.get('bulan', '').strip()
+    search_nama     = request.GET.get('q', '').strip()
+    filter_hari_ini = request.GET.get('hari_ini', '').strip()
+    bulan_sekarang  = date.today().strftime('%Y-%m')
 
     if not bulan_filter:
         bulan_filter = bulan_sekarang
@@ -246,10 +265,8 @@ def absensi_rekap(request):
         .order_by('-tanggal', 'waktu_masuk')
     )
 
-    # ── Filter hari ini override bulan ──────────
     if filter_hari_ini:
         absensi_qs = absensi_qs.filter(tanggal=date.today())
-        # sesuaikan tahun/bulan supaya stats card tetap konsisten
         tahun_int  = date.today().year
         bulan_int  = date.today().month
     else:
@@ -257,7 +274,6 @@ def absensi_rekap(request):
             tanggal__year=tahun_int,
             tanggal__month=bulan_int,
         )
-    # ────────────────────────────────────────────
 
     last_day    = monthrange(tahun_int, bulan_int)[1]
     bulan_start = date(tahun_int, bulan_int, 1)
@@ -301,7 +317,7 @@ def absensi_rekap(request):
         'bulan_sekarang' : bulan_sekarang,
         'bulan_tersedia' : bulan_tersedia,
         'search_nama'    : search_nama,
-        'filter_hari_ini': filter_hari_ini,  # ← tambah ini
+        'filter_hari_ini': filter_hari_ini,
         'total'          : total,
         'total_masuk'    : total_masuk,
         'total_pulang'   : absensi_qs.filter(waktu_pulang__isnull=False).count(),
@@ -318,39 +334,6 @@ def absensi_rekap(request):
         'izin_rejected' : izin_qs.filter(status=StatusIzinChoices.REJECTED).count(),
         'supervisor'    : supervisor,
     })
-
-
-# ─────────────────────────────────────────────
-# QR — Nonaktifkan
-# ─────────────────────────────────────────────
-
-@supervisor_or_kepala_required
-@require_POST
-def qr_nonaktifkan(request, pk):
-    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
-        return JsonResponse({'ok': False, 'error': 'Request tidak valid.'}, status=400)
-
-    supervisor = _get_supervisor(request)
-    qr_obj     = get_object_or_404(QRAbsensi, pk=pk, supervisor=supervisor)
-
-    if not qr_obj.is_active:
-        return JsonResponse({'ok': False, 'error': 'QR sudah tidak aktif.'})
-
-    qr_obj.is_active = False
-    qr_obj.save(update_fields=['is_active'])
-
-    return JsonResponse({
-        'ok'     : True,
-        'message': f'QR {qr_obj.get_tipe_display()} berhasil dinonaktifkan.',
-        'qr_pk'  : qr_obj.pk,
-    })
-
-
-# ─────────────────────────────────────────────
-# Rekap Absensi
-# ─────────────────────────────────────────────
-
-
 
 
 # ─────────────────────────────────────────────
@@ -388,12 +371,9 @@ def overtime_list(request):
         .order_by('-tanggal')
     )
 
-    belum_review = overtime_qs.filter(overtime_status=OvertimeStatusChoices.BELUM_REVIEW)
-    sudah_review = overtime_qs.exclude(overtime_status=OvertimeStatusChoices.BELUM_REVIEW)
-
     return render(request, 'supervisor/absensi/overtime_list.html', {
-        'belum_review': belum_review,
-        'sudah_review': sudah_review,
+        'belum_review': overtime_qs.filter(overtime_status=OvertimeStatusChoices.BELUM_REVIEW),
+        'sudah_review': overtime_qs.exclude(overtime_status=OvertimeStatusChoices.BELUM_REVIEW),
         'supervisor'  : supervisor,
     })
 
@@ -421,7 +401,7 @@ def overtime_klasifikasi(request, absensi_id):
         return JsonResponse({'ok': False, 'error': 'Pilihan tidak valid. Harus paid atau unpaid.'})
 
     absensi.overtime_status      = keputusan
-    absensi.overtime_reviewed_by = request.user  # tetap user asli yang login
+    absensi.overtime_reviewed_by = request.user
     absensi.overtime_reviewed_at = timezone.now()
     absensi.save(update_fields=[
         'overtime_status',
@@ -429,9 +409,8 @@ def overtime_klasifikasi(request, absensi_id):
         'overtime_reviewed_at',
     ])
 
-    nama          = absensi.staff.nama_lengkap or absensi.staff.username
-    label         = '💰 Dibayar' if keputusan == OvertimeStatusChoices.PAID else '🔵 Tidak Dibayar'
-    reviewer_nama = request.user.nama_lengkap or request.user.username
+    nama  = absensi.staff.nama_lengkap or absensi.staff.username
+    label = '💰 Dibayar' if keputusan == OvertimeStatusChoices.PAID else '🔵 Tidak Dibayar'
 
     return JsonResponse({
         'ok'         : True,
@@ -440,7 +419,7 @@ def overtime_klasifikasi(request, absensi_id):
         'label'      : label,
         'absensi_id' : absensi.id,
         'reviewed_at': localtime(absensi.overtime_reviewed_at).strftime('%d/%m/%Y %H:%M'),
-        'reviewed_by': reviewer_nama,
+        'reviewed_by': request.user.nama_lengkap or request.user.username,
     })
 
 
@@ -474,7 +453,7 @@ def api_update_overtime_status(request, pk):
         }, status=400)
 
     absensi.overtime_status      = new_status
-    absensi.overtime_reviewed_by = request.user  # tetap user asli yang login
+    absensi.overtime_reviewed_by = request.user
     absensi.overtime_reviewed_at = timezone.now()
     absensi.save(update_fields=[
         'overtime_status',
@@ -518,7 +497,7 @@ def izin_review(request, pk):
 
     izin.status             = action
     izin.catatan_supervisor = catatan
-    izin.direview_oleh      = request.user if action != 'pending' else None  # tetap user asli
+    izin.direview_oleh      = request.user if action != 'pending' else None
     izin.direview_pada      = timezone.now() if action != 'pending' else None
     izin.save(update_fields=[
         'status', 'catatan_supervisor',
@@ -541,13 +520,10 @@ def izin_review(request, pk):
 # Lokasi Absensi — CRUD
 # ─────────────────────────────────────────────
 
-from outsourcing.forms import LokasiAbsensiForm   # sesuaikan path import
-
-
 @supervisor_or_kepala_required
 def lokasi_list(request):
-    supervisor  = _get_supervisor(request)
-    lokasi_qs   = (
+    supervisor = _get_supervisor(request)
+    lokasi_qs  = (
         LokasiAbsensi.objects
         .filter(supervisor=supervisor)
         .order_by('nama')
@@ -563,11 +539,10 @@ def lokasi_tambah(request):
     supervisor = _get_supervisor(request)
 
     if request.method == 'POST':
-        # ── AJAX: terima koordinat dari pin map ──
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             form = LokasiAbsensiForm(request.POST)
             if form.is_valid():
-                lokasi          = form.save(commit=False)
+                lokasi            = form.save(commit=False)
                 lokasi.supervisor = supervisor
                 lokasi.save()
                 return JsonResponse({
@@ -578,7 +553,6 @@ def lokasi_tambah(request):
                 })
             return JsonResponse({'ok': False, 'errors': form.errors})
 
-        # ── Normal POST ──
         form = LokasiAbsensiForm(request.POST)
         if form.is_valid():
             lokasi            = form.save(commit=False)
@@ -636,11 +610,10 @@ def lokasi_hapus(request, pk):
     supervisor = _get_supervisor(request)
     lokasi     = get_object_or_404(LokasiAbsensi, pk=pk, supervisor=supervisor)
 
-    # Cek apakah lokasi masih dipakai oleh QR aktif hari ini
     qr_aktif = QRAbsensi.objects.filter(
-        lokasi   = lokasi,
-        tanggal  = timezone.localdate(),
-        is_active= True,
+        lokasi    = lokasi,
+        tanggal   = timezone.localdate(),
+        is_active = True,
     ).exists()
 
     if qr_aktif:
@@ -665,13 +638,12 @@ def lokasi_hapus(request, pk):
 @supervisor_or_kepala_required
 @require_POST
 def lokasi_toggle_aktif(request, pk):
-    """Toggle is_active via AJAX."""
     if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
         return JsonResponse({'ok': False}, status=400)
 
-    supervisor = _get_supervisor(request)
-    lokasi     = get_object_or_404(LokasiAbsensi, pk=pk, supervisor=supervisor)
-    lokasi.is_active = not lokasi.is_active
+    supervisor        = _get_supervisor(request)
+    lokasi            = get_object_or_404(LokasiAbsensi, pk=pk, supervisor=supervisor)
+    lokasi.is_active  = not lokasi.is_active
     lokasi.save(update_fields=['is_active'])
 
     return JsonResponse({
@@ -683,7 +655,6 @@ def lokasi_toggle_aktif(request, pk):
 
 @supervisor_or_kepala_required
 def lokasi_detail_json(request, pk):
-    """Endpoint untuk mengambil data lokasi (dipakai map preview)."""
     if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
         return JsonResponse({'ok': False}, status=400)
 

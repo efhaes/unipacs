@@ -3,32 +3,51 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/kepala_spv/kepala.css' %}">
 {% endblock %}
+
 {% block content %}
 <div class="form-container">
-    <div class="form-card">
-        <div class="form-header">
-            <a href="{% url 'kepala_supervisor_list' %}" class="back-link">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="15 18 9 12 15 6"/>
-                </svg>
-                Kembali ke Daftar Supervisor
-            </a>
-        </div>
-        <form method="post" enctype="multipart/form-data">
-            {% csrf_token %}
-            {% for field in form %}
-            <div class="form-group">
-                <label class="form-label">{{ field.label }}</label>
-                {{ field }}
-                {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
-                {% if field.errors %}<div class="form-error">{{ field.errors|join:', ' }}</div>{% endif %}
-            </div>
-            {% endfor %}
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary">{{ action }}</button>
-                <a href="{% url 'kepala_supervisor_list' %}" class="btn btn-outline-secondary">Batal</a>
-            </div>
-        </form>
-    </div>
+
+  <div class="form-header">
+    <a href="{% url 'kepala_akun_list' %}" class="back-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+      Kembali ke Manajemen Akun
+    </a>
+    <h5 style="margin-top:14px;">{{ page_title }}</h5>
+  </div>
+
+  <div class="form-card">
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+      {% for field in form %}
+      <div class="form-group">
+        <label class="form-label">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}
+          <div class="form-text">{{ field.help_text }}</div>
+        {% endif %}
+        {% if field.errors %}
+          <div class="form-error">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            {{ field.errors|join:', ' }}
+          </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-check-lg"></i> {{ action }}
+        </button>
+        <a href="{% url 'kepala_akun_list' %}" class="btn btn-outline-secondary">Batal</a>
+      </div>
+    </form>
+  </div>
+
 </div>
 {% endblock %}

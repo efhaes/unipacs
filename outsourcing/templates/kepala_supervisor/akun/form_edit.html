@@ -3,45 +3,174 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/kepala_spv/kepala.css' %}">
 {% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h5 class="mb-0">{{ page_title }}</h5>
-    <a href="{% url 'kepala_supervisor_list' %}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-left"></i> Kembali
+<div class="form-container">
+
+  <div class="form-header">
+    <a href="{% url 'kepala_akun_list' %}" class="back-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+      Kembali ke Manajemen Akun
     </a>
+    <h5 style="margin-top:14px;">{{ page_title }}</h5>
+  </div>
+
+  <div class="form-card">
+
+    <!-- Avatar supervisor -->
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:1.5rem;
+                padding-bottom:1.25rem;border-bottom:1px solid rgba(255,255,255,0.06);">
+      {% if supervisor.foto_profil %}
+        <img src="{{ supervisor.foto_profil.url }}"
+             style="width:52px;height:52px;border-radius:50%;object-fit:cover;
+                    border:2px solid rgba(108,99,255,0.35);flex-shrink:0;">
+      {% else %}
+        <div style="width:52px;height:52px;border-radius:50%;flex-shrink:0;
+                    background:rgba(108,99,255,0.18);border:2px solid rgba(108,99,255,0.3);
+                    display:flex;align-items:center;justify-content:center;
+                    font-size:18px;font-weight:700;color:#a09cff;">
+          {{ supervisor.nama_lengkap|default:supervisor.username|first|upper }}
+        </div>
+      {% endif %}
+      <div>
+        <div style="font-size:14px;font-weight:700;color:#f0f0ff;">
+          {{ supervisor.nama_lengkap|default:supervisor.username }}
+        </div>
+        <div style="font-size:12px;color:rgba(160,160,192,0.7);margin-top:2px;">
+          @{{ supervisor.username }}
+        </div>
+      </div>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+
+      <!-- ── Info Dasar ── -->
+      <div class="form-section-label">Info Dasar</div>
+
+      <div class="form-group">
+        <label class="form-label">Nama Lengkap</label>
+        {{ form.nama_lengkap }}
+        {% if form.nama_lengkap.errors %}
+          <div class="form-error">{{ form.nama_lengkap.errors|join:', ' }}</div>
+        {% endif %}
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-group">
+          <label class="form-label">Jenis Kelamin</label>
+          {{ form.jenis_kelamin }}
+          {% if form.jenis_kelamin.errors %}
+            <div class="form-error">{{ form.jenis_kelamin.errors|join:', ' }}</div>
+          {% endif %}
+        </div>
+        <div class="form-group">
+          <label class="form-label">NIK / ID Karyawan</label>
+          {{ form.nik }}
+          {% if form.nik.errors %}
+            <div class="form-error">{{ form.nik.errors|join:', ' }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-group">
+          <label class="form-label">Telepon</label>
+          {{ form.telepon }}
+          {% if form.telepon.errors %}
+            <div class="form-error">{{ form.telepon.errors|join:', ' }}</div>
+          {% endif %}
+        </div>
+        <div class="form-group">
+          <label class="form-label">Foto Profil</label>
+          {{ form.foto_profil }}
+          {% if form.foto_profil.errors %}
+            <div class="form-error">{{ form.foto_profil.errors|join:', ' }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          {{ form.is_active }}
+          <span>Akun Aktif</span>
+        </label>
+      </div>
+
+      <!-- ── Ubah Password ── -->
+      <div class="form-section-label" style="margin-top:1.5rem;">
+        Ubah Password
+        <span style="font-weight:500;font-size:11px;color:rgba(96,96,128,0.8);
+                     text-transform:none;letter-spacing:0;">
+          (kosongkan jika tidak ingin mengubah)
+        </span>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Password Baru</label>
+        <div class="pw-wrap">
+          {{ form.password_baru }}
+          <button type="button" class="pw-toggle" onclick="togglePw('id_password_baru', this)">
+            <svg class="eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+        {% if form.password_baru.errors %}
+          <div class="form-error">{{ form.password_baru.errors|join:', ' }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Konfirmasi Password Baru</label>
+        <div class="pw-wrap">
+          {{ form.konfirmasi_password }}
+          <button type="button" class="pw-toggle" onclick="togglePw('id_konfirmasi_password', this)">
+            <svg class="eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+        {% if form.konfirmasi_password.errors %}
+          <div class="form-error">{{ form.konfirmasi_password.errors|join:', ' }}</div>
+        {% endif %}
+      </div>
+
+      {% if form.non_field_errors %}
+      <div class="form-error" style="margin-bottom:12px;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.5" style="flex-shrink:0">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        {{ form.non_field_errors|join:', ' }}
+      </div>
+      {% endif %}
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-check-lg"></i> {{ action }}
+        </button>
+        <a href="{% url 'kepala_akun_list' %}" class="btn btn-outline-secondary">Batal</a>
+      </div>
+    </form>
+  </div>
+
 </div>
 
-<div class="card p-4">
-    <form method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        
-        <div class="row g-3">
-            <div class="col-md-12">
-                <label class="form-label small text-muted">Username</label>
-                {{ form.username }}
-            </div>
-            <div class="col-md-12">
-                <label class="form-label small text-muted">Nama Lengkap</label>
-                {{ form.nama_lengkap }}
-            </div>
-            <div class="col-md-6">
-                <label class="form-label small text-muted">Telepon</label>
-                {{ form.telepon }}
-            </div>
-            <div class="col-md-6">
-                <label class="form-label small text-muted">Foto Profil</label>
-                {{ form.foto_profil }}
-                {% if supervisor.foto_profil %}
-                    <div class="mt-2">
-                        <img src="{{ supervisor.foto_profil.url }}" class="img-thumbnail" style="max-height: 100px;">
-                    </div>
-                {% endif %}
-            </div>
-            <div class="col-12">
-                <button type="submit" class="btn btn-primary">{{ action }}</button>
-                <a href="{% url 'kepala_supervisor_list' %}" class="btn btn-secondary">Batal</a>
-            </div>
-        </div>
-    </form>
-</div>
+<script>
+function togglePw(inputId, btn) {
+  var input = document.getElementById(inputId);
+  var isText = input.type === 'text';
+  input.type = isText ? 'password' : 'text';
+  btn.querySelector('.eye-icon').style.opacity = isText ? '1' : '0.45';
+}
+</script>
 {% endblock %}

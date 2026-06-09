@@ -1,0 +1,319 @@
+{% extends 'kepala_supervisor/base_kepala.html' %}
+{% load static %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/kepala_spv/kepala.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header d-flex justify-content-between align-items-center">
+  <h5 class="mb-0">Manajemen Akun</h5>
+  {% if tab == 'supervisor' %}
+  <a href="{% url 'kepala_supervisor_create' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-lg"></i> Tambah Supervisor
+  </a>
+  {% endif %}
+</div>
+
+<!-- Tab Switch -->
+<div class="tab-switch mb-3">
+  <a href="?tab=supervisor" class="tab-btn {% if tab == 'supervisor' %}active{% endif %}">
+    <i class="bi bi-person-badge"></i> Supervisor
+  </a>
+  <a href="?tab=staff" class="tab-btn {% if tab == 'staff' %}active{% endif %}">
+    <i class="bi bi-people"></i> Staff Lapangan
+  </a>
+</div>
+
+<!-- ══════════════ FILTER BAR ══════════════ -->
+<div class="search-card">
+  <form method="get" class="d-flex gap-2 flex-wrap">
+    <input type="hidden" name="tab" value="{{ tab }}">
+    <input type="text" name="q" value="{{ q }}"
+           class="form-control form-control-sm"
+           style="min-width:140px;flex:1;"
+           placeholder="Cari {% if tab == 'supervisor' %}supervisor{% else %}staff{% endif %}...">
+    {% if tab == 'staff' %}
+    <select name="supervisor" class="form-select form-select-sm" style="max-width:200px;">
+      <option value="">Semua Supervisor</option>
+      {% for spv in supervisor_list %}
+      <option value="{{ spv.pk }}" {% if spv.pk|stringformat:"s" == spv_id %}selected{% endif %}>
+        {{ spv.nama_lengkap }}
+      </option>
+      {% endfor %}
+    </select>
+    {% endif %}
+    <button class="btn btn-sm btn-secondary">Cari</button>
+    {% if q or spv_id %}
+    <a href="?tab={{ tab }}" class="btn btn-outline-secondary btn-sm">Reset</a>
+    {% endif %}
+  </form>
+</div>
+
+<!-- ══════════════ TAB: SUPERVISOR ══════════════ -->
+{% if tab == 'supervisor' %}
+
+<div class="table-card">
+  <div class="table-responsive">
+    <table class="table mb-0">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Nama Supervisor</th>
+          <th>Username</th>
+          <th>Telepon</th>
+          <th>Penugasan</th>
+          <th>Status</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for data in supervisor_data %}
+        <tr>
+          <td class="cell-muted">{{ forloop.counter }}</td>
+          <td><span class="cell-name">{{ data.supervisor.nama_lengkap|default:data.supervisor.username }}</span></td>
+          <td class="cell-muted">{{ data.supervisor.username }}</td>
+          <td class="cell-muted">{{ data.supervisor.telepon|default:'—' }}</td>
+          <td>
+            {% for p in data.penugasan %}
+              <div class="small">{{ p.perusahaan.nama_perusahaan }} ({{ p.jenis_jasa.nama_jasa }})</div>
+            {% empty %}
+              <span class="cell-muted small">Belum ditugaskan</span>
+            {% endfor %}
+          </td>
+          <td>
+            {% if data.supervisor.is_active %}
+              <span class="status-badge badge-aktif">Aktif</span>
+            {% else %}
+              <span class="status-badge badge-nonaktif">Nonaktif</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{% url 'kepala_supervisor_edit' data.supervisor.pk %}"
+               class="action-btn edit"><i class="bi bi-pencil"></i></a>
+            <button class="action-btn toggle"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalToggle{{ data.supervisor.pk }}">
+              <i class="bi bi-power"></i>
+            </button>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center text-muted py-5">
+          <i class="bi bi-person-badge" style="font-size:2rem;opacity:0.3;display:block;margin-bottom:8px;"></i>
+          Belum ada supervisor.
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Mobile Cards Supervisor -->
+<div class="mobile-cards">
+  {% for data in supervisor_data %}
+  <div class="m-card">
+    <div class="m-card-avatar">
+      {{ data.supervisor.nama_lengkap|default:data.supervisor.username|slice:":2"|upper }}
+    </div>
+    <div class="m-card-info">
+      <div class="m-card-name">{{ data.supervisor.nama_lengkap|default:data.supervisor.username }}</div>
+      <div class="m-card-sub">
+        @{{ data.supervisor.username }} · {{ data.supervisor.telepon|default:'—' }}<br>
+        {% for p in data.penugasan %}
+          {{ p.perusahaan.nama_perusahaan }}{% if not forloop.last %}, {% endif %}
+        {% empty %}Belum ditugaskan{% endfor %}
+      </div>
+    </div>
+    <div class="m-card-right">
+      {% if data.supervisor.is_active %}
+        <span class="status-badge badge-aktif">Aktif</span>
+      {% else %}
+        <span class="status-badge badge-nonaktif">Nonaktif</span>
+      {% endif %}
+      <div style="display:flex;gap:6px;margin-top:4px;">
+        <a href="{% url 'kepala_supervisor_edit' data.supervisor.pk %}" class="action-btn edit">
+          <i class="bi bi-pencil"></i>
+        </a>
+        <button class="action-btn toggle"
+                data-bs-toggle="modal"
+                data-bs-target="#modalToggle{{ data.supervisor.pk }}">
+          <i class="bi bi-power"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div style="text-align:center;padding:2rem;color:rgba(96,96,128,0.7);font-size:13px;">
+    Belum ada supervisor.
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Modal Toggle -->
+{% for data in supervisor_data %}
+<div class="modal fade" id="modalToggle{{ data.supervisor.pk }}" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title">Toggle Status Akun</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        {% if data.supervisor.is_active %}
+          Yakin ingin menonaktifkan <strong>{{ data.supervisor.nama_lengkap|default:data.supervisor.username }}</strong>?
+        {% else %}
+          Yakin ingin mengaktifkan <strong>{{ data.supervisor.nama_lengkap|default:data.supervisor.username }}</strong>?
+        {% endif %}
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+        <form method="post" action="{% url 'kepala_supervisor_toggle_aktif' data.supervisor.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-warning btn-sm">Ya</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+<!-- ══════════════ TAB: STAFF ══════════════ -->
+{% elif tab == 'staff' %}
+
+{% if staff_data %}
+  {% regroup staff_data by supervisor as staff_by_spv %}
+
+  <div class="spv-accordion">
+    {% for group in staff_by_spv %}
+
+    {% with aktif_count=0 %}
+    <div class="spv-acc-item" id="acc-{{ forloop.counter }}">
+
+      <div class="spv-acc-header" onclick="toggleAcc('acc-{{ forloop.counter }}')">
+        <div class="spv-acc-left">
+          <div class="spv-acc-avatar">
+            {% if group.grouper %}{{ group.grouper.nama_lengkap|first|upper }}{% else %}?{% endif %}
+          </div>
+          <div>
+            <div class="spv-acc-name">
+              {% if group.grouper %}{{ group.grouper.nama_lengkap }}{% else %}Tanpa Supervisor{% endif %}
+            </div>
+            <div class="spv-acc-sub">
+              {% for data in group.list %}
+                {% if data.staff.is_active %}
+                  {% if forloop.first %}{% endif %}
+                {% endif %}
+              {% endfor %}
+              {{ group.list|length }} staff terdaftar
+            </div>
+          </div>
+        </div>
+        <div class="spv-acc-right">
+          <!-- Aktif / nonaktif count -->
+          <div class="spv-acc-stat-wrap">
+            {% for data in group.list %}
+              {% if data.staff.is_active %}
+                <span class="spv-acc-dot dot-aktif"></span>
+              {% else %}
+                <span class="spv-acc-dot dot-nonaktif"></span>
+              {% endif %}
+            {% endfor %}
+          </div>
+          <span class="spv-acc-count-badge">{{ group.list|length }}</span>
+          <svg class="spv-acc-chevron" width="16" height="16" viewBox="0 0 24 24"
+               fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="spv-acc-body">
+
+        <!-- Desktop table -->
+        <div class="spv-acc-table-wrap">
+          <table class="spv-acc-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Nama Staff</th>
+                <th>Username</th>
+                <th>Telepon</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for data in group.list %}
+              <tr>
+                <td class="cell-muted">{{ forloop.counter }}</td>
+                <td>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <div class="staff-avatar">{{ data.staff.nama_lengkap|first|upper }}</div>
+                    <span class="cell-name">{{ data.staff.nama_lengkap }}</span>
+                  </div>
+                </td>
+                <td class="cell-muted">{{ data.staff.username }}</td>
+                <td class="cell-muted">{{ data.staff.telepon|default:'—' }}</td>
+                <td>
+                  {% if data.staff.is_active %}
+                    <span class="status-badge badge-aktif">Aktif</span>
+                  {% else %}
+                    <span class="status-badge badge-nonaktif">Nonaktif</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Mobile cards -->
+        <div class="spv-acc-mobile">
+          {% for data in group.list %}
+          <div class="spv-staff-card">
+            <div class="staff-avatar" style="width:38px;height:38px;font-size:14px;flex-shrink:0;">
+              {{ data.staff.nama_lengkap|first|upper }}
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div class="cell-name" style="font-size:13.5px;">{{ data.staff.nama_lengkap }}</div>
+              <div class="cell-muted" style="font-size:12px;margin-top:2px;">
+                @{{ data.staff.username }}
+                {% if data.staff.telepon %} · {{ data.staff.telepon }}{% endif %}
+              </div>
+            </div>
+            {% if data.staff.is_active %}
+              <span class="status-badge badge-aktif">Aktif</span>
+            {% else %}
+              <span class="status-badge badge-nonaktif">Nonaktif</span>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+
+      </div>
+    </div>
+    {% endwith %}
+    {% endfor %}
+  </div>
+
+{% else %}
+  <div class="table-card" style="padding:3rem;text-align:center;color:rgba(96,96,128,0.7);">
+    <i class="bi bi-people" style="font-size:2rem;opacity:0.3;display:block;margin-bottom:8px;"></i>
+    Belum ada staff.
+  </div>
+{% endif %}
+
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleAcc(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+document.addEventListener('DOMContentLoaded', function() {
+  var first = document.querySelector('.spv-acc-item');
+  if (first) first.classList.add('open');
+});
+</script>
+{% endblock %}

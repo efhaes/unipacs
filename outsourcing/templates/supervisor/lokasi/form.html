@@ -4,180 +4,515 @@
 {% block extra_css %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
-.form-card {
-  background: rgba(255,255,255,0.02);
-  border: 1px solid var(--clr-border);
-  border-radius: var(--radius-lg);
-  padding: 28px;
+/* ── Layout ──────────────────────────────────────────── */
+.lokasi-grid {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 20px;
+  align-items: start;
 }
-.form-label-custom {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--clr-text-muted);
-  margin-bottom: 6px;
-  display: block;
+@media (max-width: 900px) {
+  .lokasi-grid { grid-template-columns: 1fr; }
 }
-.form-control {
-  background: rgba(255,255,255,0.05) !important;
-  border: 1px solid rgba(255,255,255,0.12) !important;
-  color: var(--clr-text-primary) !important;
-  border-radius: 8px !important;
-}
-.form-control:focus {
-  border-color: var(--clr-accent) !important;
-  box-shadow: 0 0 0 3px rgba(165,180,252,0.15) !important;
-}
-.form-control::placeholder { color: rgba(255,255,255,0.25) !important; }
 
-#map-picker {
-  height: 380px;
-  border-radius: 12px;
-  border: 2px solid rgba(255,255,255,0.10);
-  margin-bottom: 12px;
-  cursor: crosshair;
+/* ── Card ────────────────────────────────────────────── */
+.lk-card {
+  background : rgba(255,255,255,0.02);
+  border     : 1px solid rgba(255,255,255,0.09);
+  border-radius: 14px;
+  padding    : 22px;
 }
-#map-picker.has-pin { border-color: var(--clr-accent); }
+.lk-card + .lk-card { margin-top: 14px; }
+
+/* ── Section title ───────────────────────────────────── */
+.lk-title {
+  font-size  : 13px;
+  font-weight: 700;
+  color      : var(--clr-text-primary);
+  margin-bottom: 16px;
+  display    : flex;
+  align-items: center;
+  gap        : 8px;
+}
+.lk-title-dot {
+  width : 3px;
+  height: 14px;
+  background: var(--clr-accent);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ── Form fields ─────────────────────────────────────── */
+.lk-label {
+  font-size    : 11.5px;
+  font-weight  : 600;
+  color        : var(--clr-text-muted);
+  margin-bottom: 5px;
+  display      : block;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.lk-input {
+  width        : 100%;
+  background   : rgba(255,255,255,0.04) !important;
+  border       : 1px solid rgba(255,255,255,0.09) !important;
+  border-radius: 9px !important;
+  color        : var(--clr-text-primary) !important;
+  font-size    : 13px !important;
+  padding      : 9px 12px !important;
+  box-sizing   : border-box;
+  transition   : border-color .18s, box-shadow .18s;
+}
+.lk-input:focus {
+  border-color: var(--clr-accent) !important;
+  box-shadow  : 0 0 0 3px rgba(165,180,252,0.14) !important;
+  outline     : none;
+}
+.lk-input::placeholder { color: rgba(255,255,255,0.2) !important; }
+.lk-error { color: #fca5a5; font-size: 11.5px; margin-top: 4px; }
+.lk-field { margin-bottom: 14px; }
+
+/* ── Coord row ───────────────────────────────────────── */
+.coord-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* ── GPS button ──────────────────────────────────────── */
+.btn-gps {
+  width        : 100%;
+  background   : rgba(56,189,248,0.08);
+  border       : 1.5px dashed rgba(56,189,248,0.35);
+  border-radius: 10px;
+  color        : #38bdf8;
+  font-size    : 13px;
+  font-weight  : 600;
+  padding      : 10px;
+  cursor       : pointer;
+  transition   : all .2s;
+  display      : flex;
+  align-items  : center;
+  justify-content: center;
+  gap          : 7px;
+  margin-bottom: 12px;
+  font-family  : inherit;
+}
+.btn-gps:hover:not(:disabled) {
+  background  : rgba(56,189,248,0.14);
+  border-color: rgba(56,189,248,0.55);
+}
+.btn-gps:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── Panduan card ────────────────────────────────────── */
+.panduan-toggle {
+  width        : 100%;
+  background   : rgba(99,102,241,0.07);
+  border       : 1px solid rgba(99,102,241,0.2);
+  border-radius: 10px;
+  color        : #a5b4fc;
+  font-size    : 12.5px;
+  font-weight  : 600;
+  padding      : 9px 14px;
+  cursor       : pointer;
+  display      : flex;
+  align-items  : center;
+  justify-content: space-between;
+  margin-bottom: 0;
+  font-family  : inherit;
+  transition   : background .18s;
+}
+.panduan-toggle:hover { background: rgba(99,102,241,0.12); }
+.panduan-toggle svg   { transition: transform .2s; }
+.panduan-toggle.open svg { transform: rotate(180deg); }
+
+.panduan-body {
+  display      : none;
+  margin-top   : 10px;
+  background   : rgba(99,102,241,0.05);
+  border       : 1px solid rgba(99,102,241,0.15);
+  border-radius: 10px;
+  padding      : 14px 16px;
+}
+.panduan-body.show { display: block; }
+
+.panduan-step {
+  display    : flex;
+  gap        : 10px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+.panduan-step:last-child { margin-bottom: 0; }
+.panduan-num {
+  width        : 20px;
+  height       : 20px;
+  border-radius: 50%;
+  background   : rgba(99,102,241,0.25);
+  color        : #a5b4fc;
+  font-size    : 10px;
+  font-weight  : 700;
+  display      : flex;
+  align-items  : center;
+  justify-content: center;
+  flex-shrink  : 0;
+  margin-top   : 1px;
+}
+.panduan-text {
+  font-size  : 12px;
+  color      : rgba(160,160,192,0.85);
+  line-height: 1.6;
+}
+.panduan-text strong { color: #f0f0ff; }
+.panduan-text code {
+  background   : rgba(99,102,241,0.18);
+  border-radius: 4px;
+  padding      : 1px 5px;
+  font-size    : 11px;
+  color        : #a5b4fc;
+}
+
+/* ── Paste link ──────────────────────────────────────── */
+.paste-row {
+  display: flex;
+  gap    : 8px;
+  margin-top: 10px;
+}
+.paste-row input {
+  flex         : 1;
+  background   : rgba(255,255,255,0.04) !important;
+  border       : 1px solid rgba(255,255,255,0.09) !important;
+  border-radius: 8px !important;
+  color        : #f0f0ff !important;
+  font-size    : 12px !important;
+  padding      : 8px 10px !important;
+}
+.paste-row input::placeholder { color: rgba(255,255,255,0.2) !important; }
+.paste-row button {
+  background   : rgba(99,102,241,0.18);
+  border       : 1px solid rgba(99,102,241,0.3);
+  border-radius: 8px;
+  color        : #a5b4fc;
+  font-size    : 12px;
+  font-weight  : 600;
+  padding      : 8px 14px;
+  cursor       : pointer;
+  white-space  : nowrap;
+  font-family  : inherit;
+  transition   : all .15s;
+}
+.paste-row button:hover { background: rgba(99,102,241,0.28); }
+.paste-feedback {
+  font-size : 11.5px;
+  margin-top: 5px;
+  display   : none;
+}
+.paste-feedback.ok  { color: #4ade80; }
+.paste-feedback.err { color: #fca5a5; }
+
+/* ── Map ─────────────────────────────────────────────── */
+#map-picker {
+  height       : 340px;
+  border-radius: 10px;
+  border       : 1.5px solid rgba(255,255,255,0.08);
+  margin-bottom: 8px;
+  cursor       : crosshair;
+  transition   : border-color .2s;
+}
+#map-picker.has-pin { border-color: rgba(165,180,252,0.5); }
 
 .map-hint {
-  font-size: 12px;
-  color: var(--clr-text-muted);
+  font-size : 11px;
+  color     : var(--clr-text-muted);
   text-align: center;
-  margin-bottom: 16px;
-}
-.map-hint strong { color: var(--clr-accent); }
-
-.gps-btn {
-  background: rgba(99,102,241,0.12);
-  border: 1px solid rgba(99,102,241,0.30);
-  color: #a5b4fc;
-  border-radius: 8px;
-  padding: 7px 16px;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-  width: 100%;
   margin-bottom: 12px;
 }
-.gps-btn:hover { background: rgba(99,102,241,0.22); }
-.gps-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.map-coord-display {
+  text-align   : center;
+  font-size    : 11.5px;
+  color        : rgba(160,160,192,0.6);
+  font-variant-numeric: tabular-nums;
+  margin-top   : 6px;
+}
+.map-coord-display.pinned { color: #a5b4fc; }
 
-.error-text { color: #fca5a5; font-size: 12px; margin-top: 4px; }
+/* ── Toggle aktif ────────────────────────────────────── */
+.toggle-row {
+  display    : flex;
+  align-items: center;
+  gap        : 10px;
+  background : rgba(255,255,255,0.03);
+  border     : 1px solid rgba(255,255,255,0.07);
+  border-radius: 10px;
+  padding    : 11px 14px;
+  margin-bottom: 16px;
+}
+.toggle-label {
+  font-size  : 13px;
+  font-weight: 500;
+  color      : var(--clr-text-primary);
+  cursor     : pointer;
+  flex       : 1;
+}
+.toggle-sub {
+  font-size: 11px;
+  color    : var(--clr-text-muted);
+  display  : block;
+  font-weight: 400;
+}
+
+/* ── Submit ──────────────────────────────────────────── */
+.btn-submit {
+  width        : 100%;
+  padding      : 12px;
+  background   : var(--clr-accent);
+  border       : none;
+  border-radius: 10px;
+  color        : #fff;
+  font-size    : 14px;
+  font-weight  : 700;
+  cursor       : pointer;
+  transition   : opacity .18s, transform .12s;
+  font-family  : inherit;
+  display      : flex;
+  align-items  : center;
+  justify-content: center;
+  gap          : 6px;
+}
+.btn-submit:hover  { opacity: .88; transform: translateY(-1px); }
+.btn-submit:active { transform: scale(.98); }
+
+.btn-cancel {
+  display      : block;
+  text-align   : center;
+  margin-top   : 10px;
+  color        : rgba(96,96,128,0.65);
+  font-size    : 12.5px;
+  text-decoration: none;
+  transition   : color .15s;
+}
+.btn-cancel:hover { color: rgba(160,160,192,0.9); }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="page-content">
-  <div class="row justify-content-center">
-    <div class="col-lg-9">
 
-      <!-- Breadcrumb -->
-      <div class="mb-4">
-        <a href="{% url 'supervisor_lokasi_list' %}"
-           style="color:var(--clr-text-muted);font-size:13px;text-decoration:none">
-          ← Kembali ke Daftar Lokasi
-        </a>
+  <!-- Breadcrumb & header -->
+  <div style="margin-bottom:20px;">
+    <a href="{% url 'supervisor_lokasi_list' %}"
+       style="color:var(--clr-text-muted);font-size:13px;text-decoration:none;">
+      ← Kembali ke Daftar Lokasi
+    </a>
+    <h5 style="color:var(--clr-text-primary);font-weight:700;margin:10px 0 0;font-size:18px;">
+      {% if mode == 'edit' %}✏️ Edit Lokasi Absensi{% else %}📍 Tambah Lokasi Absensi{% endif %}
+    </h5>
+  </div>
+
+  <form method="post" id="lokasiForm">
+    {% csrf_token %}
+
+    <div class="lokasi-grid">
+
+      <!-- ══ KOLOM KIRI: Form ══════════════════════════ -->
+      <div>
+
+        <!-- Card: Info Lokasi -->
+        <div class="lk-card">
+          <div class="lk-title">
+            <div class="lk-title-dot"></div>
+            Info Lokasi
+          </div>
+
+          <div class="lk-field">
+            <label class="lk-label" for="{{ form.nama.id_for_label }}">Nama Lokasi</label>
+            <input type="text" name="nama"
+                   id="{{ form.nama.id_for_label }}"
+                   class="lk-input"
+                   value="{{ form.nama.value|default:'' }}"
+                   placeholder="Contoh: Kantor Pusat Lt.3, Gudang B…">
+            {% if form.nama.errors %}
+              <div class="lk-error">{{ form.nama.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <!-- Koordinat -->
+          <div class="lk-field">
+            <label class="lk-label">Koordinat</label>
+            <div class="coord-row">
+              <div>
+                <input type="number" name="latitude"
+                       id="{{ form.latitude.id_for_label }}"
+                       class="lk-input" step="any"
+                       value="{{ form.latitude.value|default:'' }}"
+                       placeholder="Latitude">
+                {% if form.latitude.errors %}
+                  <div class="lk-error">{{ form.latitude.errors.0 }}</div>
+                {% endif %}
+              </div>
+              <div>
+                <input type="number" name="longitude"
+                       id="{{ form.longitude.id_for_label }}"
+                       class="lk-input" step="any"
+                       value="{{ form.longitude.value|default:'' }}"
+                       placeholder="Longitude">
+                {% if form.longitude.errors %}
+                  <div class="lk-error">{{ form.longitude.errors.0 }}</div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <!-- Radius -->
+          <div class="lk-field">
+            <label class="lk-label" for="{{ form.radius_meter.id_for_label }}">
+              Radius Absensi
+            </label>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <input type="range" id="radiusSlider"
+                     min="10" max="1000" step="10"
+                     value="{{ form.radius_meter.value|default:'100' }}"
+                     style="flex:1;accent-color:var(--clr-accent);">
+              <div style="background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);
+                          border-radius:8px;padding:5px 12px;font-size:13px;font-weight:700;
+                          color:#a09cff;min-width:60px;text-align:center;"
+                   id="radiusDisplay">
+                {{ form.radius_meter.value|default:'100' }}m
+              </div>
+              <input type="hidden" name="radius_meter"
+                     id="{{ form.radius_meter.id_for_label }}"
+                     value="{{ form.radius_meter.value|default:'100' }}">
+            </div>
+            <div style="font-size:11px;color:var(--clr-text-muted);margin-top:5px;">
+              Rekomendasi: gedung tunggal 50–100m &bull; area luas 150–300m
+            </div>
+            {% if form.radius_meter.errors %}
+              <div class="lk-error">{{ form.radius_meter.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <!-- Toggle aktif -->
+          <div class="toggle-row">
+            {{ form.is_active }}
+            <label class="toggle-label" for="{{ form.is_active.id_for_label }}">
+              Aktifkan validasi lokasi
+              <span class="toggle-sub">Jika OFF, QR tidak mewajibkan cek lokasi</span>
+            </label>
+          </div>
+
+          <button type="submit" class="btn-submit">
+            {% if mode == 'edit' %}
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
+                <polyline points="17 21 17 13 7 13 7 21"/>
+                <polyline points="7 3 7 8 15 8"/>
+              </svg>
+              Simpan Perubahan
+            {% else %}
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="16"/>
+                <line x1="8" y1="12" x2="16" y2="12"/>
+              </svg>
+              Tambah Lokasi
+            {% endif %}
+          </button>
+          <a href="{% url 'supervisor_lokasi_list' %}" class="btn-cancel">Batal</a>
+        </div>
+
+        <!-- Card: Panduan Koordinat -->
+        <div class="lk-card">
+          <button type="button" class="panduan-toggle" id="panduan-toggle">
+            <span>📖 Cara mendapatkan koordinat dari Google Maps</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+
+          <div class="panduan-body" id="panduan-body">
+            <div class="panduan-step">
+              <div class="panduan-num">1</div>
+              <div class="panduan-text">
+                Buka <strong>Google Maps</strong> di browser atau HP
+                (<code>maps.google.com</code>)
+              </div>
+            </div>
+            <div class="panduan-step">
+              <div class="panduan-num">2</div>
+              <div class="panduan-text">
+                Cari alamat atau nama tempat tujuan di kolom pencarian
+              </div>
+            </div>
+            <div class="panduan-step">
+              <div class="panduan-num">3</div>
+              <div class="panduan-text">
+                <strong>Klik kanan</strong> tepat di titik lokasi yang diinginkan
+                → pilih <strong>"What's here?"</strong> (atau "Ada apa di sini?")
+              </div>
+            </div>
+            <div class="panduan-step">
+              <div class="panduan-num">4</div>
+              <div class="panduan-text">
+                Koordinat muncul di bagian bawah peta dalam format
+                <code>-6.208763, 106.845599</code> — angka pertama adalah
+                <strong>Latitude</strong>, angka kedua <strong>Longitude</strong>
+              </div>
+            </div>
+            <div class="panduan-step">
+              <div class="panduan-num">5</div>
+              <div class="panduan-text">
+                Salin koordinat tersebut, lalu tempel di kolom di bawah ini
+              </div>
+            </div>
+
+            <!-- Paste from Google Maps link -->
+            <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(99,102,241,0.15);">
+              <div style="font-size:11.5px;font-weight:600;color:rgba(160,160,192,0.8);margin-bottom:6px;">
+                Atau tempel link Google Maps langsung:
+              </div>
+              <div class="paste-row">
+                <input type="text" id="gmapsInput"
+                       placeholder="https://maps.google.com/?q=-6.208763,106.845599 atau koordinat langsung">
+                <button type="button" id="gmapsParseBtn">Ambil</button>
+              </div>
+              <div class="paste-feedback" id="pasteFeedback"></div>
+            </div>
+          </div>
+        </div>
+
       </div>
 
-      <h5 style="color:var(--clr-text-primary);font-weight:600;margin-bottom:24px">
-        {% if mode == 'edit' %}✏️ Edit Lokasi{% else %}📍 Tambah Lokasi Absensi{% endif %}
-      </h5>
-
-      <form method="post" id="lokasiForm">
-        {% csrf_token %}
-
-        <div class="row g-4">
-
-          <!-- Kolom kiri: form fields -->
-          <div class="col-md-5">
-            <div class="form-card">
-
-              <div class="mb-3">
-                <label class="form-label-custom">Nama Lokasi *</label>
-                {{ form.nama }}
-                {% if form.nama.errors %}
-                  <div class="error-text">{{ form.nama.errors.0 }}</div>
-                {% endif %}
-              </div>
-
-              <div class="mb-3">
-                <label class="form-label-custom">Latitude *</label>
-                {{ form.latitude }}
-                {% if form.latitude.errors %}
-                  <div class="error-text">{{ form.latitude.errors.0 }}</div>
-                {% endif %}
-              </div>
-
-              <div class="mb-3">
-                <label class="form-label-custom">Longitude *</label>
-                {{ form.longitude }}
-                {% if form.longitude.errors %}
-                  <div class="error-text">{{ form.longitude.errors.0 }}</div>
-                {% endif %}
-              </div>
-
-              <div class="mb-3">
-                <label class="form-label-custom">Radius (meter) *</label>
-                {{ form.radius_meter }}
-                {% if form.radius_meter.errors %}
-                  <div class="error-text">{{ form.radius_meter.errors.0 }}</div>
-                {% endif %}
-                <div style="font-size:11px;color:var(--clr-text-muted);margin-top:4px">
-                  Minimum 10m, maksimum 5000m
-                </div>
-              </div>
-
-              <div class="mb-4 d-flex align-items-center gap-2">
-                {{ form.is_active }}
-                <label class="form-label-custom mb-0" style="cursor:pointer">Lokasi Aktif</label>
-              </div>
-
-              <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-sm flex-grow-1"
-                        style="background:var(--clr-accent);color:#fff;border:none;padding:9px;border-radius:8px;font-size:13px">
-                  {% if mode == 'edit' %}💾 Simpan Perubahan{% else %}➕ Tambah Lokasi{% endif %}
-                </button>
-                <a href="{% url 'supervisor_lokasi_list' %}" class="btn btn-sm"
-                   style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.65);border:1px solid rgba(255,255,255,0.12);padding:9px 16px;border-radius:8px;font-size:13px">
-                  Batal
-                </a>
-              </div>
-
-            </div>
-          </div>
-
-          <!-- Kolom kanan: map picker -->
-          <div class="col-md-7">
-            <div class="form-card">
-              <div style="color:var(--clr-text-primary);font-weight:500;font-size:14px;margin-bottom:12px">
-                🗺 Pilih Lokasi di Peta
-              </div>
-
-              <button type="button" class="gps-btn" id="gpsBtn">
-                📡 Gunakan Lokasi Saya Sekarang
-              </button>
-
-              <div class="map-hint">
-                Klik di peta untuk menentukan titik pusat lokasi.<br>
-                Lingkaran biru menunjukkan radius absensi.
-              </div>
-
-              <div id="map-picker"></div>
-
-              <div style="font-size:12px;color:var(--clr-text-muted);text-align:center" id="coordDisplay">
-                {% if mode == 'edit' %}
-                  Pin: {{ lokasi.latitude }}, {{ lokasi.longitude }}
-                {% else %}
-                  Belum ada pin — klik peta atau pakai GPS
-                {% endif %}
-              </div>
-            </div>
-          </div>
-
+      <!-- ══ KOLOM KANAN: Map ══════════════════════════ -->
+      <div class="lk-card">
+        <div class="lk-title">
+          <div class="lk-title-dot"></div>
+          Titik Lokasi di Peta
+          <span style="font-size:11px;font-weight:400;color:var(--clr-text-muted);margin-left:auto;">
+            Klik peta atau drag pin untuk mengatur posisi
+          </span>
         </div>
-      </form>
+
+        <button type="button" class="btn-gps" id="gpsBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+          </svg>
+          <span id="gpsBtnLabel">Pakai Lokasi GPS Saya Sekarang</span>
+        </button>
+
+        <div id="map-picker"></div>
+
+        <div class="map-coord-display" id="coordDisplay">
+          {% if mode == 'edit' %}
+            📍 {{ lokasi.latitude }}, {{ lokasi.longitude }}
+          {% else %}
+            Belum ada pin — klik peta, drag pin, atau pakai GPS
+          {% endif %}
+        </div>
+      </div>
 
     </div>
-  </div>
+  </form>
+
 </div>
 {% endblock %}
 
@@ -186,32 +521,39 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
-  const latInput    = document.getElementById('{{ form.latitude.id_for_label }}');
-  const lonInput    = document.getElementById('{{ form.longitude.id_for_label }}');
-  const radiusInput = document.getElementById('{{ form.radius_meter.id_for_label }}');
-  const coordDisp   = document.getElementById('coordDisplay');
-  const mapEl       = document.getElementById('map-picker');
+  // ── Referensi elemen ───────────────────────────────────────────────────
+  var latInput    = document.getElementById('{{ form.latitude.id_for_label }}');
+  var lonInput    = document.getElementById('{{ form.longitude.id_for_label }}');
+  var radiusInput = document.getElementById('{{ form.radius_meter.id_for_label }}');
+  var slider      = document.getElementById('radiusSlider');
+  var radDisplay  = document.getElementById('radiusDisplay');
+  var coordDisp   = document.getElementById('coordDisplay');
+  var mapEl       = document.getElementById('map-picker');
 
-  // ── Init map ─────────────────────────────────
-  const defaultLat = {{ lokasi.latitude|default:"" }} || -6.2088;
-  const defaultLon = {{ lokasi.longitude|default:"" }} || 106.8456;
-  const defaultZoom = {{ mode|yesno:"'edit','tambah'" }} === 'edit' ? 16 : 12;
+  // ── Slider radius ──────────────────────────────────────────────────────
+  slider.addEventListener('input', function () {
+    radDisplay.textContent = this.value + 'm';
+    radiusInput.value      = this.value;
+    if (circle) circle.setRadius(parseInt(this.value));
+  });
 
-  const map = L.map('map-picker').setView([defaultLat, defaultLon], defaultZoom);
+  // ── Map init ───────────────────────────────────────────────────────────
+  var initLat  = {% if mode == 'edit' %}{{ lokasi.latitude }}{% else %}-6.2088{% endif %};
+  var initLon  = {% if mode == 'edit' %}{{ lokasi.longitude }}{% else %}106.8456{% endif %};
+  var initZoom = {% if mode == 'edit' %}16{% else %}12{% endif %};
+
+  var map    = L.map('map-picker').setView([initLat, initLon], initZoom);
+  var marker = null;
+  var circle = null;
+
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap',
   }).addTo(map);
 
-  let marker = null;
-  let circle = null;
+  function getRadius() { return parseInt(radiusInput.value) || 100; }
 
-  function getRadius() {
-    return parseInt(radiusInput.value) || 100;
-  }
-
-  function setPin(lat, lon) {
-    const r = getRadius();
-
+  function setPin(lat, lon, fly) {
+    var r = getRadius();
     if (marker) marker.remove();
     if (circle) circle.remove();
 
@@ -220,79 +562,134 @@ document.addEventListener('DOMContentLoaded', function () {
       radius     : r,
       color      : '#a5b4fc',
       fillColor  : '#a5b4fc',
-      fillOpacity: 0.15,
+      fillOpacity: 0.12,
       weight     : 2,
     }).addTo(map);
 
     latInput.value = lat.toFixed(7);
     lonInput.value = lon.toFixed(7);
-    coordDisp.textContent = `Pin: ${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+
+    coordDisp.textContent = '📍 ' + lat.toFixed(6) + ', ' + lon.toFixed(6);
+    coordDisp.className   = 'map-coord-display pinned';
     mapEl.classList.add('has-pin');
 
-    // Drag marker → update koordinat
+    if (fly) map.flyTo([lat, lon], 16, { duration: 1 });
+
+    // Drag → update koordinat
     marker.on('dragend', function (e) {
-      const pos = e.target.getLatLng();
+      var pos = e.target.getLatLng();
       circle.setLatLng(pos);
-      latInput.value = pos.lat.toFixed(7);
-      lonInput.value = pos.lng.toFixed(7);
-      coordDisp.textContent = `Pin: ${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`;
+      latInput.value        = pos.lat.toFixed(7);
+      lonInput.value        = pos.lng.toFixed(7);
+      coordDisp.textContent = '📍 ' + pos.lat.toFixed(6) + ', ' + pos.lng.toFixed(6);
     });
   }
 
-  // Klik peta → set pin
-  map.on('click', function (e) {
-    setPin(e.latlng.lat, e.latlng.lng);
-  });
+  // Klik peta
+  map.on('click', function (e) { setPin(e.latlng.lat, e.latlng.lng, false); });
 
-  // Radius berubah → update circle
-  radiusInput.addEventListener('input', function () {
-    if (circle) circle.setRadius(getRadius());
-  });
-
-  // ── Init pin untuk mode edit ──────────────────
+  // Init pin mode edit
   {% if mode == 'edit' %}
-  setPin({{ lokasi.latitude }}, {{ lokasi.longitude }});
+  setPin({{ lokasi.latitude }}, {{ lokasi.longitude }}, false);
   {% endif %}
 
-  // ── GPS ──────────────────────────────────────
-  document.getElementById('gpsBtn').addEventListener('click', function () {
-    if (!navigator.geolocation) {
-      alert('GPS tidak didukung browser ini.');
-      return;
-    }
-    this.disabled    = true;
-    this.textContent = '📡 Mendapatkan lokasi…';
-    const btn = this;
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const lat = pos.coords.latitude;
-        const lon = pos.coords.longitude;
-        map.setView([lat, lon], 17);
-        setPin(lat, lon);
-        btn.disabled    = false;
-        btn.textContent = '📡 Gunakan Lokasi Saya Sekarang';
-      },
-      () => {
-        alert('Gagal mendapatkan lokasi. Pastikan izin GPS diaktifkan.');
-        btn.disabled    = false;
-        btn.textContent = '📡 Gunakan Lokasi Saya Sekarang';
-      },
-      { timeout: 10000, enableHighAccuracy: true }
-    );
-  });
-
-  // ── Sync manual input → update peta ──────────
+  // Sync saat input koordinat diketik manual
   function syncFromInput() {
-    const lat = parseFloat(latInput.value);
-    const lon = parseFloat(lonInput.value);
-    if (!isNaN(lat) && !isNaN(lon)) {
-      map.setView([lat, lon], 16);
-      setPin(lat, lon);
-    }
+    var lat = parseFloat(latInput.value);
+    var lon = parseFloat(lonInput.value);
+    if (!isNaN(lat) && !isNaN(lon)) setPin(lat, lon, true);
   }
   latInput.addEventListener('blur', syncFromInput);
   lonInput.addEventListener('blur', syncFromInput);
+
+  // ── GPS ────────────────────────────────────────────────────────────────
+  var gpsBtn   = document.getElementById('gpsBtn');
+  var gpsLabel = document.getElementById('gpsBtnLabel');
+
+  gpsBtn.addEventListener('click', function () {
+    if (!navigator.geolocation) {
+      alert('Browser kamu tidak mendukung GPS.');
+      return;
+    }
+    gpsBtn.disabled   = true;
+    gpsLabel.textContent = 'Mendapatkan lokasi…';
+
+    navigator.geolocation.getCurrentPosition(
+      function (pos) {
+        setPin(pos.coords.latitude, pos.coords.longitude, true);
+        gpsBtn.disabled      = false;
+        gpsLabel.textContent = 'Pakai Lokasi GPS Saya Sekarang';
+      },
+      function () {
+        alert('Gagal mendapatkan lokasi. Aktifkan izin GPS di browser.');
+        gpsBtn.disabled      = false;
+        gpsLabel.textContent = 'Pakai Lokasi GPS Saya Sekarang';
+      },
+      { enableHighAccuracy: true, timeout: 12000 }
+    );
+  });
+
+  // ── Panduan toggle ─────────────────────────────────────────────────────
+  var pandToggle = document.getElementById('panduan-toggle');
+  var pandBody   = document.getElementById('panduan-body');
+
+  pandToggle.addEventListener('click', function () {
+    var open = pandBody.classList.toggle('show');
+    pandToggle.classList.toggle('open', open);
+  });
+
+  // ── Parse link / koordinat Google Maps ────────────────────────────────
+  var gmapsInput    = document.getElementById('gmapsInput');
+  var gmapsParseBtn = document.getElementById('gmapsParseBtn');
+  var pasteFeedback = document.getElementById('pasteFeedback');
+
+  gmapsParseBtn.addEventListener('click', function () {
+    var raw = gmapsInput.value.trim();
+    if (!raw) return;
+
+    pasteFeedback.style.display = 'none';
+    pasteFeedback.className     = 'paste-feedback';
+
+    var lat = null, lon = null;
+
+    // 1. Koordinat langsung: "-6.208763, 106.845599" atau "-6.208763,106.845599"
+    var directMatch = raw.match(/^(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)$/);
+    if (directMatch) {
+      lat = parseFloat(directMatch[1]);
+      lon = parseFloat(directMatch[2]);
+    }
+
+    // 2. URL Google Maps: @lat,lon,zoom atau ?q=lat,lon
+    if (!lat) {
+      var atMatch = raw.match(/@(-?\d+\.?\d+),(-?\d+\.?\d+)/);
+      if (atMatch) { lat = parseFloat(atMatch[1]); lon = parseFloat(atMatch[2]); }
+    }
+    if (!lat) {
+      var qMatch = raw.match(/[?&]q=(-?\d+\.?\d+),(-?\d+\.?\d+)/);
+      if (qMatch) { lat = parseFloat(qMatch[1]); lon = parseFloat(qMatch[2]); }
+    }
+    if (!lat) {
+      var llMatch = raw.match(/[?&]ll=(-?\d+\.?\d+),(-?\d+\.?\d+)/);
+      if (llMatch) { lat = parseFloat(llMatch[1]); lon = parseFloat(llMatch[2]); }
+    }
+
+    if (lat && lon && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+      setPin(lat, lon, true);
+      gmapsInput.value            = '';
+      pasteFeedback.textContent   = '✓ Koordinat berhasil diambil: ' + lat.toFixed(6) + ', ' + lon.toFixed(6);
+      pasteFeedback.className     = 'paste-feedback ok';
+      pasteFeedback.style.display = 'block';
+    } else {
+      pasteFeedback.textContent   = '✗ Format tidak dikenali. Coba tempel link Google Maps atau koordinat langsung.';
+      pasteFeedback.className     = 'paste-feedback err';
+      pasteFeedback.style.display = 'block';
+    }
+  });
+
+  // Enter di input paste = klik tombol Ambil
+  gmapsInput.addEventListener('keypress', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); gmapsParseBtn.click(); }
+  });
 
 });
 </script>

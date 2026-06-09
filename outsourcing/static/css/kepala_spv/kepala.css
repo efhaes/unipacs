@@ -335,9 +335,84 @@ thead.table-light > tr > th {
    FORM — create / edit supervisor
    ════════════════════════════════════════════════════════════ */
 
+/* ════════════════════════════════════════════════════════════
+   FORM CONTAINER — centered
+   ════════════════════════════════════════════════════════════ */
 .form-container {
   max-width: 560px;
   padding: 1.5rem 0;
+  margin: 0 auto;          /* ← ini yang center-kan */
+}
+
+/* ════════════════════════════════════════════════════════════
+   FORM SECTION LABEL
+   ════════════════════════════════════════════════════════════ */
+.form-section-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: rgba(96,96,128,0.8);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.form-section-label::before {
+  content: '';
+  width: 3px; height: 11px;
+  background: #6c63ff;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+/* ── Select dropdown options ───────────────────────────────── */
+.form-select option,
+select option {
+  background: #1a1a2e !important;
+  color: #f0f0ff !important;
+}
+
+/* Fix dropdown list di beberapa browser */
+select {
+  background-color: rgba(22,22,40,0.95) !important;
+}
+/* ════════════════════════════════════════════════════════════
+   PASSWORD TOGGLE
+   ════════════════════════════════════════════════════════════ */
+.pw-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.pw-wrap .form-control {
+  padding-right: 42px !important;
+}
+.pw-toggle {
+  position: absolute;
+  right: 10px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: rgba(160,160,192,0.6);
+  padding: 0;
+  display: flex;
+  align-items: center;
+  transition: color .15s;
+}
+.pw-toggle:hover { color: #f0f0ff; }
+.eye-icon { opacity: 0.45; transition: opacity .15s; }
+
+/* ════════════════════════════════════════════════════════════
+   FORM ERROR — dengan icon
+   ════════════════════════════════════════════════════════════ */
+.form-error {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #ff5c7c;
+  margin-top: 5px;
 }
 
 .form-card {
@@ -568,4 +643,194 @@ label.form-label.small.text-muted {
 }
 @media (min-width: 641px) {
     .mobile-cards { display: none !important; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   TAB SWITCH
+   ════════════════════════════════════════════════════════════ */
+.tab-switch {
+  display: flex;
+  gap: 6px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 4px;
+  width: fit-content;
+}
+.tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(160,160,192,0.7);
+  text-decoration: none;
+  transition: all 0.18s;
+}
+.tab-btn:hover {
+  color: #f0f0ff;
+  background: rgba(255,255,255,0.05);
+  text-decoration: none;
+}
+.tab-btn.active {
+  background: #6c63ff;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(108,99,255,0.35);
+}
+
+
+/* ════════════════════════════════════════════════════════════
+   STAFF ACCORDION
+   ════════════════════════════════════════════════════════════ */
+.spv-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.spv-acc-item {
+  background: rgba(22,22,40,0.82);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.spv-acc-item.open {
+  border-color: rgba(108,99,255,0.35);
+}
+
+/* Header */
+.spv-acc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+  gap: 12px;
+}
+.spv-acc-header:hover {
+  background: rgba(108,99,255,0.05);
+}
+
+.spv-acc-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+.spv-acc-avatar {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: rgba(108,99,255,0.2);
+  border: 2px solid rgba(108,99,255,0.35);
+  color: #a09cff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 700;
+  flex-shrink: 0;
+}
+.spv-acc-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #f0f0ff;
+  margin-bottom: 2px;
+}
+.spv-acc-sub {
+  font-size: 12px;
+  color: rgba(160,160,192,0.6);
+}
+
+.spv-acc-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.spv-acc-count-badge {
+  background: rgba(108,99,255,0.15);
+  border: 1px solid rgba(108,99,255,0.3);
+  color: #a09cff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+.spv-acc-chevron {
+  color: rgba(160,160,192,0.5);
+  transition: transform 0.25s ease;
+  flex-shrink: 0;
+}
+.spv-acc-item.open .spv-acc-chevron {
+  transform: rotate(180deg);
+  color: #a09cff;
+}
+
+/* Body */
+.spv-acc-body {
+  display: none;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.spv-acc-item.open .spv-acc-body {
+  display: block;
+}
+
+/* Mini table di dalam accordion */
+.spv-acc-table-wrap {
+  overflow-x: auto;
+}
+.spv-acc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.spv-acc-table thead th {
+  background: rgba(255,255,255,0.03) !important;
+  color: rgba(160,160,192,0.6) !important;
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 8px 18px !important;
+  border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+  white-space: nowrap;
+}
+.spv-acc-table tbody td {
+  padding: 10px 18px !important;
+  border-bottom: 1px solid rgba(255,255,255,0.04) !important;
+  vertical-align: middle;
+  color: #f0f0ff;
+}
+.spv-acc-table tbody tr:last-child td {
+  border-bottom: none !important;
+}
+.spv-acc-table tbody tr:hover td {
+  background: rgba(108,99,255,0.04) !important;
+}
+
+/* Mobile cards di dalam accordion */
+.spv-acc-mobile {
+  display: none;
+  padding: 10px 14px;
+  flex-direction: column;
+  gap: 8px;
+}
+.spv-staff-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px;
+}
+
+@media (max-width: 640px) {
+  .spv-acc-table-wrap { display: none; }
+  .spv-acc-mobile { display: flex; }
+  .spv-acc-header { padding: 12px 14px; }
+  .spv-acc-name { font-size: 13px; }
 }

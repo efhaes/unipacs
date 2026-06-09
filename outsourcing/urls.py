@@ -13,9 +13,8 @@ from outsourcing.views.admin import (
 )
 from outsourcing.views.kepala_supervisor import (
     dashboard_view as kepala_dashboard,
-    supervisor_list, supervisor_create,
+    supervisor_staff_list, supervisor_create,
     supervisor_edit, supervisor_toggle_aktif,
-    staff_list as kepala_staff_list,
     penugasan_list, penugasan_create, penugasan_edit, penugasan_delete,
     laporan_list as kepala_laporan_list, laporan_detail as kepala_laporan_detail,
     area_list, area_create, area_edit, area_delete,pilih_supervisor,set_acting_supervisor,clear_acting_supervisor
@@ -25,13 +24,17 @@ from outsourcing.views.staff.item import item_hapus_foto_tambahan_ajax
 from outsourcing.views.supervisor import (
     dashboard_view as supervisor_dashboard,
     laporan_list, laporan_create, laporan_detail, laporan_edit, laporan_delete,
-    laporan_kirim,laporan_selesai,laporan_toggle_aktif,
+    laporan_kirim, laporan_selesai, laporan_toggle_aktif,
     item_create, item_edit, item_delete,
-    staff_list as supervisor_staff_list, staff_create, staff_edit, staff_toggle_aktif, staff_delete,
+    staff_list as spv_staff_list,   # ← ganti alias ini
+    staff_create, staff_edit, staff_toggle_aktif, staff_delete,
     subarea_list, subarea_create, subarea_edit, subarea_delete,
     task_list, task_create, task_edit, task_delete,
-    customer_create,qr_list,qr_generate,qr_nonaktifkan,absensi_rekap,absensi_detail,izin_review,lokasi_list,lokasi_tambah,lokasi_hapus,lokasi_toggle_aktif,lokasi_detail_json,
+    customer_create, qr_list, qr_generate, qr_nonaktifkan,
+    absensi_rekap, absensi_detail, izin_review,
+    lokasi_list, lokasi_tambah, lokasi_hapus, lokasi_toggle_aktif, lokasi_detail_json,
 )
+
 from outsourcing.views.staff import (
     dashboard_view as staff_dashboard,
     item_list, item_update, item_update_jam,item_create_insidental,
@@ -85,11 +88,10 @@ urlpatterns = [
 
     # Kepala Supervisor
     path('kepala/', kepala_dashboard, name='kepala_dashboard'),
-    path('kepala/supervisor/', supervisor_list, name='kepala_supervisor_list'),
+    path('kepala/akun/', supervisor_staff_list, name='kepala_akun_list'),
     path('kepala/supervisor/tambah/', supervisor_create, name='kepala_supervisor_create'),
     path('kepala/supervisor/<int:pk>/edit/', supervisor_edit, name='kepala_supervisor_edit'),
     path('kepala/supervisor/<int:pk>/toggle/', supervisor_toggle_aktif, name='kepala_supervisor_toggle_aktif'),
-    path('kepala/staff/', kepala_staff_list, name='kepala_staff_list'),
     path('kepala/penugasan/', penugasan_list, name='kepala_penugasan_list'),
     path('kepala/penugasan/tambah/', penugasan_create, name='kepala_penugasan_create'),
     path('kepala/penugasan/<int:pk>/edit/', penugasan_edit, name='kepala_penugasan_edit'),
@@ -100,12 +102,10 @@ urlpatterns = [
     path('kepala/area/tambah/', area_create, name='kepala_area_create'),
     path('kepala/area/<int:pk>/edit/', area_edit, name='kepala_area_edit'),
     path('kepala/area/<int:pk>/hapus/', area_delete, name='kepala_area_delete'),
-    # urls.py
     path('kepala/pilih-supervisor/', pilih_supervisor, name='kepala_pilih_supervisor'),
-    path('kepala/akses-supervisor/<int:supervisor_id>/',set_acting_supervisor, name='kepala_set_acting_supervisor'),
+    path('kepala/akses-supervisor/<int:supervisor_id>/', set_acting_supervisor, name='kepala_set_acting_supervisor'),
     path('kepala/keluar-supervisor/', clear_acting_supervisor, name='kepala_clear_acting_supervisor'),
-
-    # Supervisor
+        # Supervisor
     path('supervisor/', supervisor_dashboard, name='supervisor_dashboard'),
     path('supervisor/laporan/', laporan_list, name='supervisor_laporan_list'),
     path('supervisor/laporan/tambah/', laporan_create, name='supervisor_laporan_create'),
@@ -118,8 +118,7 @@ urlpatterns = [
     path('supervisor/laporan/<int:pk>/toggle-aktif/', laporan_toggle_aktif, name='supervisor_laporan_toggle_aktif'),
     path('supervisor/item/<int:pk>/edit/', item_edit, name='supervisor_item_edit'),
     path('supervisor/item/<int:pk>/hapus/', item_delete, name='supervisor_item_delete'),
-    path('supervisor/staff/', supervisor_staff_list, name='supervisor_staff_list'),
-    path('supervisor/staff/tambah/', staff_create, name='supervisor_staff_create'),
+    path('supervisor/staff/', spv_staff_list, name='supervisor_staff_list'),  # ← spv_staff_list    path('supervisor/staff/tambah/', staff_create, name='supervisor_staff_create'),
     path('supervisor/staff/<int:pk>/edit/', staff_edit, name='supervisor_staff_edit'),
     path('supervisor/staff/<int:pk>/toggle/', staff_toggle_aktif, name='supervisor_staff_toggle_aktif'),
     path('supervisor/staff/<int:pk>/delete/', staff_delete, name='supervisor_staff_delete'),
@@ -138,8 +137,7 @@ urlpatterns = [
     path('supervisor/qr/<int:pk>/nonaktifkan/', qr_nonaktifkan, name='supervisor_qr_nonaktifkan'),
     path('supervisor/absensi/rekap/', absensi_rekap, name='supervisor_absensi_rekap'),
     path('supervisor/absensi/<int:pk>/', absensi_detail, name='supervisor_absensi_detail'),
-    path('supervisor/laporan/bulanan/<int:perusahaan_id>/<int:tahun>/<int:bulan>/<int:jenis_jasa_id>/download/<str:format>/', 
-        generate_laporan_bulanan, name='download_laporan_bulanan'),
+    path('supervisor/laporan/bulanan/<int:perusahaan_id>/<int:tahun>/<int:bulan>/<int:jenis_jasa_id>/download/<str:format>/',generate_laporan_bulanan, name='download_laporan_bulanan'),
     path('supervisor/absensi/<int:pk>/overtime-status/',api_update_overtime_status,name='supervisor_absensi_overtime_status',),
     path('supervisor/absensi/izin/<int:pk>/review/', izin_review, name='supervisor_izin_review'),
     path('lokasi/',                lokasi_list,         name='supervisor_lokasi_list'),

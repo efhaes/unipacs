@@ -4,13 +4,6 @@ from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
 from django.conf import settings
 
-from docx import Document
-from docx.shared import Inches
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-
-from xhtml2pdf import pisa
-
-import io
 import os
 import calendar
 from datetime import date
@@ -48,6 +41,7 @@ def build_jadwal_kalender(item_list, bulan, tahun):
             jadwal[sub_area_name][key] = {
                 'nama_item'    : item.nama_item,
                 'task'         : item.task.nama_task if item.task else '-',
+                'standar'      : item.task.standar if item.task and item.task.standar else '-',
                 'sub_area'     : item.sub_area.nama_sub_area if item.sub_area else '-',
                 'staff'        : staff_names,
                 'tanggal_aktif': set(),
@@ -68,7 +62,6 @@ def build_jadwal_kalender(item_list, bulan, tahun):
         jadwal_final[sub_area_name] = items_list
 
     return jadwal_final, days_in_month
-
 
 def build_absensi_kalender(absensi_list, bulan, tahun, libur_set=None):
 
@@ -158,6 +151,7 @@ def build_laporan_dengan_jadwal(laporan_list, days_in_month):
                     hari_list[idx] = '✓'
             items_data.append({
                 'nama_item': item.nama_item,
+                'standar'  : item.task.standar if item.task and item.task.standar else '-',
                 'sub_area' : item.sub_area.nama_sub_area if item.sub_area else '-',
                 'task'     : item.task.nama_task if item.task else '-',
                 'frek'     : 'H' if item.jam_mulai else 'M',
@@ -211,7 +205,6 @@ def get_data_laporan_bulanan(perusahaan_id, bulan, tahun, jenis_jasa_id):
         'task', 'sub_area', 'laporan__area'
     ).order_by('laporan__area__nama_area', 'tanggal')
 
- 
     libur_set = get_hari_libur_set(tahun=int(tahun), bulan=int(bulan))
 
     jadwal_kalender, days_in_month = build_jadwal_kalender(item_list, bulan, tahun)
@@ -235,6 +228,14 @@ def get_data_laporan_bulanan(perusahaan_id, bulan, tahun, jenis_jasa_id):
         for pk, subs in staff_subarea_map_raw.items()
     }
 
+    absensi_totals = {
+        'hadir' : sum(d.get('jumlah_hadir',  0) for d in absensi_kalender.values()),
+        'alpa'  : sum(d.get('jumlah_alpa',   0) for d in absensi_kalender.values()),
+        'izin'  : sum(d.get('jumlah_izin',   0) for d in absensi_kalender.values()),
+        'cuti'  : sum(d.get('jumlah_cuti',   0) for d in absensi_kalender.values()),
+        'dokter': sum(d.get('jumlah_dokter', 0) for d in absensi_kalender.values()),
+    }
+
     return {
         'laporan_list'         : laporan_list,
         'staff_list'           : staff_list,
@@ -247,13 +248,10 @@ def get_data_laporan_bulanan(perusahaan_id, bulan, tahun, jenis_jasa_id):
         'laporan_dengan_jadwal': laporan_dengan_jadwal,
         'days_in_month'        : days_in_month,
         'days_range'           : list(range(1, days_in_month + 1)),
-        # info_hari untuk highlight header kolom di template
-        # Format: {1: {'is_libur': True, 'is_minggu': True, 'is_nasional': False}, ...}
         'info_hari'            : info_hari,
-        # staff_subarea_map untuk section I Data Karyawan
-        # Format: {staff_pk: 'Sub Area A, Sub Area B'}
         'staff_subarea_map'    : staff_subarea_map,
-    }   
+        'absensi_totals'       : absensi_totals,
+    }  
 
 
 # ──────────────────────────────────────────────────
@@ -302,7 +300,7 @@ def generate_laporan_bulanan(request, perusahaan_id, tahun, bulan, jenis_jasa_id
         if format == 'pdf':
             return _generate_pdf(request, context)
         elif format == 'word':
-            return _generate_word(context)
+            return _generate_word(request, context)
         else:
             return HttpResponse("Format tidak dikenal. Gunakan 'pdf' atau 'word'.", status=400)
 
@@ -332,502 +330,1034 @@ def _fetch_resources(uri, rel):
 def _generate_pdf(request, context):
     try:
         from weasyprint import HTML
-
         html_string = render_to_string('laporan_bulanan_pdf.html', context, request=request)
         base_url    = request.build_absolute_uri('/')
         pdf_bytes   = HTML(string=html_string, base_url=base_url).write_pdf()
-
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="{context["nama_file"]}.pdf"'
         return response
-
     except Exception as e:
         return HttpResponse(f"Error PDF: {e}", status=500)
 
 
-def _generate_word(context):
-    try:
-        from docx.shared import Mm
-        doc = Document()
-        for section in doc.sections:
-            section.top_margin    = Mm(20)
-            section.bottom_margin = Mm(20)
-            section.left_margin   = Mm(18)
-            section.right_margin  = Mm(18)
+# Ganti HANYA fungsi ini di views lo
 
-        _word_cover(doc, context)
-        _word_data_karyawan(doc, context)
-        _word_struktur_organisasi(doc, context)
-        _word_jadwal(doc, context)
-        _word_absensi(doc, context)
-        _word_program_pelaksanaan(doc, context)
-        _word_foto_progres(doc, context)
-        _word_penutup(doc, context)
+"""
+_generate_word menggunakan python-docx murni.
+Paste fungsi-fungsi ini ke views.py lo (atau file terpisah lalu import).
 
-        buffer = io.BytesIO()
-        doc.save(buffer)
-        buffer.seek(0)
+Struktur section:
+  Cover          → portrait
+  Daftar Isi     → portrait
+  I.  Karyawan   → portrait
+  II. Organisasi → portrait
+  III.Jadwal     → LANDSCAPE
+  IV. Absensi    → LANDSCAPE
+  V.  Program    → LANDSCAPE
+  VI. Foto       → portrait
+  VII.Penutup    → portrait
+"""
 
-        response = HttpResponse(
-            buffer,
-            content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        )
-        response['Content-Disposition'] = f'attachment; filename="{context["nama_file"]}.docx"'
-        return response
-
-    except Exception as e:
-        import traceback  # ← tambah ini
-        return HttpResponse(f"Error Word:\n{traceback.format_exc()}", status=500)
-
-
-# ──────────────────────────────────────────────────
-# WORD HELPERS
-# ──────────────────────────────────────────────────
-
-def _add_section_heading(doc, text, level=1):
-    h = doc.add_heading(text, level=level)
-    h.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    return h
-
-
-def _add_table_header(table, headers):
-    from docx.shared import RGBColor, Pt
-    from docx.oxml.ns import qn
-    from docx.oxml import OxmlElement
-
-    hdr_cells = table.rows[0].cells
-    for i, h in enumerate(headers):
-        hdr_cells[i].text = h
-        run = hdr_cells[i].paragraphs[0].runs[0]
-        run.bold = True
-        run.font.size = Pt(7)
-
-        tc   = hdr_cells[i]._tc
-        tcPr = tc.get_or_add_tcPr()
-        shd  = OxmlElement('w:shd')
-        shd.set(qn('w:val'),   'clear')
-        shd.set(qn('w:color'), 'auto')
-        shd.set(qn('w:fill'),  '1a3a5c')
-        tcPr.append(shd)
-
-        run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
-
-
-def _word_cover(doc, ctx):
-    from docx.shared import Pt
-
-    doc.add_paragraph()
-    t = doc.add_paragraph('LAPORAN BULANAN')
-    t.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    t.runs[0].bold = True
-    t.runs[0].font.size = Pt(18)
-
-    doc.add_paragraph()
-    p = doc.add_paragraph()
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r = p.add_run(ctx['perusahaan'].nama_perusahaan + '\n')
-    r.bold = True
-    r.font.size = Pt(14)
-
-    p2 = doc.add_paragraph()
-    p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p2.add_run(f"Jasa: {ctx['jenis_jasa'].nama_jasa}\n")
-    p2.add_run(f"Periode: {ctx['nama_bulan']} {ctx['tahun']}\n")
-    p2.add_run(f"\n{ctx['perusahaan'].alamat}")
-
-    doc.add_page_break()
-
-
-def _word_data_karyawan(doc, ctx):
-    _add_section_heading(doc, 'I. DATA KARYAWAN')
-
-    # Build mapping staff_id → sub_area dari item_list
-    # Gunakan .get() dengan default [] agar tidak error kalau key tidak ada
-    staff_subarea_map = {}
-    try:
-        for item in ctx.get('item_list', []):
-            if item is None:
-                continue
-            sub_area_nama = (
-                item.sub_area.nama_sub_area
-                if item.sub_area else '-'
-            )
-            # item.staff adalah ManyToMany — bisa kosong tapi tidak None
-            for staff in item.staff.all():
-                if staff is None:
-                    continue
-                if staff.pk not in staff_subarea_map:
-                    staff_subarea_map[staff.pk] = set()
-                staff_subarea_map[staff.pk].add(sub_area_nama)
-    except Exception:
-        # Kalau gagal build map, kolom sub_area akan tampil '-'
-        staff_subarea_map = {}
-
-    table = doc.add_table(rows=1, cols=5)
-    table.style = 'Table Grid'
-    _add_table_header(table, ['No', 'Nama', 'NIK', 'Sub Area', 'Status'])
-
-    for i, rel in enumerate(ctx.get('staff_list', []), 1):
-        if rel is None:
-            continue
-
-        sub_areas    = staff_subarea_map.get(rel.staff.pk, set())
-        sub_area_text = ', '.join(sorted(sub_areas)) if sub_areas else '-'
-
-        row = table.add_row().cells
-        row[0].text = str(i)
-        row[1].text = rel.staff.nama_lengkap or rel.staff.username or '-'
-        row[2].text = rel.staff.nik or '-'
-        row[3].text = sub_area_text
-        row[4].text = 'Aktif'
-
-    doc.add_page_break()
-
-
-def _word_struktur_organisasi(doc, ctx):
-    _add_section_heading(doc, 'II. STRUKTUR ORGANISASI')
-
-    table = doc.add_table(rows=1, cols=4)
-    table.style = 'Table Grid'
-    _add_table_header(table, ['Supervisor', 'Jenis Jasa', 'Jumlah Staff', 'Status'])
-
-    for laporan in ctx['laporan_list']:
-        row = table.add_row().cells
-        row[0].text = laporan.supervisor.nama_lengkap or laporan.supervisor.username
-        row[1].text = laporan.jenis_jasa.nama_jasa
-        row[2].text = str(laporan.supervisor.staff_dibawahnya.count())
-        row[3].text = 'Aktif'
-
-    doc.add_page_break()
-
-
-from docx.shared import Pt, Mm, RGBColor, Twips
+import io
+from docx import Document
+from docx.shared import Pt, RGBColor, Cm, Inches, Twips
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.table import WD_ALIGN_VERTICAL, WD_TABLE_ALIGNMENT
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from lxml import etree
 
 
-def _set_col_width(cell, twips_val):
-    """Set lebar kolom secara paksa via XML."""
-    tc   = cell._tc
-    tcPr = tc.get_or_add_tcPr()
-    for old in tcPr.findall(qn('w:tcW')):
-        tcPr.remove(old)
-    tcW = OxmlElement('w:tcW')
-    tcW.set(qn('w:w'),    str(int(twips_val)))
-    tcW.set(qn('w:type'), 'dxa')
-    tcPr.insert(0, tcW)
+# ══════════════════════════════════════════════════════
+# WARNA BRAND
+# ══════════════════════════════════════════════════════
+C_NAVY    = RGBColor(0x1a, 0x3a, 0x5c)   # header utama
+C_NAVY2   = RGBColor(0x2c, 0x4e, 0x6e)   # header tabel kalender
+C_WHITE   = RGBColor(0xFF, 0xFF, 0xFF)
+C_GRAY    = RGBColor(0x60, 0x70, 0x80)
+C_LGRAY   = RGBColor(0x80, 0x99, 0xb0)
+C_GREEN   = RGBColor(0x1a, 0x6b, 0x3a)
+C_RED     = RGBColor(0xc0, 0x39, 0x2b)
+C_ORANGE  = RGBColor(0xbf, 0x6b, 0x00)
+C_BLUE    = RGBColor(0x00, 0x5b, 0xb5)
+C_BGLIGHT = "F4F7FB"   # hex string untuk shading
+C_BGROW   = "F9FBFD"
+C_BORDER  = "C8D4E0"
 
 
-def _disable_autofit(table):
-    """Matikan autofit agar lebar kolom yang di-set tidak di-override Word."""
-    tbl    = table._tbl
-    tblPr  = tbl.find(qn('w:tblPr'))
-    if tblPr is None:
-        tblPr = OxmlElement('w:tblPr')
-        tbl.insert(0, tblPr)
-    # Hapus tblW lama
-    for old in tblPr.findall(qn('w:tblW')):
-        tblPr.remove(old)
-    tblW = OxmlElement('w:tblW')
-    tblW.set(qn('w:w'),    '0')
-    tblW.set(qn('w:type'), 'auto')
-    tblPr.append(tblW)
-    # Set layout fixed
-    tblLayout = OxmlElement('w:tblLayout')
-    tblLayout.set(qn('w:type'), 'fixed')
-    tblPr.append(tblLayout)
+# ══════════════════════════════════════════════════════
+# XML HELPERS
+# ══════════════════════════════════════════════════════
 
-
-def _set_row_height(row, height_twips):
-    """Set tinggi row agar konsisten."""
-    tr    = row._tr
-    trPr  = tr.find(qn('w:trPr'))
-    if trPr is None:
-        trPr = OxmlElement('w:trPr')
-        tr.insert(0, trPr)
-    trH = OxmlElement('w:trHeight')
-    trH.set(qn('w:val'),  str(int(height_twips)))
-    trH.set(qn('w:hRule'), 'atLeast')
-    trPr.append(trH)
-
-
-def _header_cell(cell, text, fill='1a3a5c', font_size=5.5):
-    """Style cell header: background biru, teks putih bold."""
+def set_cell_bg(cell, hex_color):
+    """Set background warna cell tabel."""
     tc   = cell._tc
     tcPr = tc.get_or_add_tcPr()
     shd  = OxmlElement('w:shd')
     shd.set(qn('w:val'),   'clear')
     shd.set(qn('w:color'), 'auto')
-    shd.set(qn('w:fill'),  fill)
+    shd.set(qn('w:fill'),  hex_color)
+    # hapus shd lama kalau ada
+    for old in tcPr.findall(qn('w:shd')):
+        tcPr.remove(old)
     tcPr.append(shd)
-    para = cell.paragraphs[0]
-    para.clear()
-    run = para.add_run(text)
-    run.bold = True
-    run.font.size = Pt(font_size)
-    run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
-    para.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
 
-def _body_cell(cell, text, font_size=5.5, align=WD_ALIGN_PARAGRAPH.CENTER, bold=False):
-    """Style cell body."""
-    para = cell.paragraphs[0]
-    para.clear()
-    run = para.add_run(str(text) if text is not None else '')
-    run.font.size = Pt(font_size)
-    run.bold = bold
-    para.alignment = align
+def set_cell_borders(cell, color="C8D4E0", size=4):
+    """Set border semua sisi cell."""
+    tc   = cell._tc
+    tcPr = tc.get_or_add_tcPr()
+    tcBorders = OxmlElement('w:tcBorders')
+    for side in ['top', 'left', 'bottom', 'right']:
+        el = OxmlElement(f'w:{side}')
+        el.set(qn('w:val'),   'single')
+        el.set(qn('w:sz'),    str(size))
+        el.set(qn('w:space'), '0')
+        el.set(qn('w:color'), color)
+        tcBorders.append(el)
+    for old in tcPr.findall(qn('w:tcBorders')):
+        tcPr.remove(old)
+    tcPr.append(tcBorders)
 
 
-# ── 1 mm ≈ 56.7 twips ──────────────────────────────────────────────────────
-MM = 56.7
+def set_cell_margins(cell, top=60, bottom=60, left=100, right=100):
+    tc   = cell._tc
+    tcPr = tc.get_or_add_tcPr()
+    tcMar = OxmlElement('w:tcMar')
+    for side, val in [('top', top), ('bottom', bottom), ('left', left), ('right', right)]:
+        el = OxmlElement(f'w:{side}')
+        el.set(qn('w:w'),    str(val))
+        el.set(qn('w:type'), 'dxa')
+        tcMar.append(el)
+    for old in tcPr.findall(qn('w:tcMar')):
+        tcPr.remove(old)
+    tcPr.append(tcMar)
 
 
-def _word_jadwal(doc, ctx):
-    doc.add_heading('III. JADWAL DAN PLOTING KERJA', level=1)
-
-    days_range      = ctx['days_range']
-    jadwal_kalender = ctx['jadwal_kalender']
-    n_days          = len(days_range)
-
-    # Usable width A4 portrait dengan margin 18mm kiri-kanan = 210 - 36 = 174mm
-    # No=7, Item=30, Task=28, Staff=28 → fixed=93mm, sisa untuk hari
-    USABLE  = 174
-    FIXED   = 7 + 30 + 28 + 28   # = 93mm
-    day_w   = max((USABLE - FIXED) / n_days, 4.5)  # mm per kolom hari
-
-    col_widths_mm = [7, 30, 28, 28] + [day_w] * n_days
-
-    for sub_area_name, items in jadwal_kalender.items():
-        p = doc.add_paragraph(sub_area_name)
-        if p.runs:
-            p.runs[0].bold = True
-            p.runs[0].font.size = Pt(8)
-
-        cols  = 4 + n_days
-        table = doc.add_table(rows=1, cols=cols)
-        table.style = 'Table Grid'
-        _disable_autofit(table)
-
-        # Header
-        headers = ['No', 'Item', 'Task', 'Staff'] + [str(d) for d in days_range]
-        hdr_row = table.rows[0]
-        _set_row_height(hdr_row, 200)
-        for i, (h, w) in enumerate(zip(headers, col_widths_mm)):
-            cell = hdr_row.cells[i]
-            _set_col_width(cell, w * MM)
-            _header_cell(cell, h, font_size=5.5)
-
-        # Body
-        for idx, item in enumerate(items, 1):
-            row = table.add_row()
-            _set_row_height(row, 200)
-            cells = row.cells
-
-            _set_col_width(cells[0], col_widths_mm[0] * MM)
-            _body_cell(cells[0], str(idx), font_size=5.5)
-
-            _set_col_width(cells[1], col_widths_mm[1] * MM)
-            _body_cell(cells[1], item['nama_item'], font_size=5.5, align=WD_ALIGN_PARAGRAPH.LEFT)
-
-            _set_col_width(cells[2], col_widths_mm[2] * MM)
-            _body_cell(cells[2], item['task'], font_size=5.5, align=WD_ALIGN_PARAGRAPH.LEFT)
-
-            _set_col_width(cells[3], col_widths_mm[3] * MM)
-            _body_cell(cells[3], item['staff'], font_size=5.5, align=WD_ALIGN_PARAGRAPH.LEFT)
-
-            for k, day in enumerate(days_range):
-                ci  = 4 + k
-                val = 'A' if day in item['tanggal_aktif'] else ''
-                _set_col_width(cells[ci], day_w * MM)
-                _body_cell(cells[ci], val, font_size=5)
-
-        doc.add_paragraph()
+def set_cell_valign(cell, align='center'):
+    tc   = cell._tc
+    tcPr = tc.get_or_add_tcPr()
+    vAlign = OxmlElement('w:vAlign')
+    vAlign.set(qn('w:val'), align)
+    for old in tcPr.findall(qn('w:vAlign')):
+        tcPr.remove(old)
+    tcPr.append(vAlign)
 
 
-def _word_absensi(doc, ctx):
-    doc.add_heading('IV. ABSENSI', level=1)
-
-    days_range       = ctx['days_range']
-    absensi_kalender = ctx['absensi_kalender']
-    n_days           = len(days_range)
-
-    # No=6, Nama=30, NIK=18, hari×X, E/A/I/L/DC=6 (×5=30), Ket=18
-    # 174 - 6 - 30 - 18 - 30 - 18 = 72mm untuk hari
-    USABLE   = 174
-    FIXED    = 6 + 30 + 18 + 30 + 18   # = 102mm
-    day_w    = max((USABLE - FIXED) / n_days, 4.0)  # mm per kolom hari
-
-    sum_w  = 6.0   # lebar kolom summary (E A I L DC)
-    ket_w  = 18.0
-
-    col_widths_mm = [6, 30, 18] + [day_w] * n_days + [sum_w]*5 + [ket_w]
-
-    cols  = 3 + n_days + 5 + 1
-    table = doc.add_table(rows=1, cols=cols)
-    table.style = 'Table Grid'
-    _disable_autofit(table)
-
-    # Header
-    headers = ['No', 'Nama', 'NIK'] + [str(d) for d in days_range] + ['E', 'A', 'I', 'L', 'DC', 'Ket']
-    hdr_row = table.rows[0]
-    _set_row_height(hdr_row, 200)
-    for i, (h, w) in enumerate(zip(headers, col_widths_mm)):
-        cell = hdr_row.cells[i]
-        _set_col_width(cell, w * MM)
-        _header_cell(cell, h, font_size=5.5)
-
-    # Body
-    for i, (staff_id, data) in enumerate(absensi_kalender.items(), 1):
-        row = table.add_row()
-        _set_row_height(row, 180)
-        cells = row.cells
-
-        # No
-        _set_col_width(cells[0], col_widths_mm[0] * MM)
-        _body_cell(cells[0], str(i), font_size=5.5)
-
-        # Nama
-        _set_col_width(cells[1], col_widths_mm[1] * MM)
-        _body_cell(cells[1], data['nama'], font_size=5.5, align=WD_ALIGN_PARAGRAPH.LEFT, bold=True)
-
-        # NIK
-        _set_col_width(cells[2], col_widths_mm[2] * MM)
-        _body_cell(cells[2], data['nik'] or '-', font_size=5.5)
-
-        # Kolom hari
-        for k in range(n_days):
-            ci        = 3 + k
-            hari_info = data['hari_list'][k]
-            status    = hari_info['status'] if isinstance(hari_info, dict) else (hari_info or '')
-            _set_col_width(cells[ci], day_w * MM)
-            _body_cell(cells[ci], status, font_size=5)
-
-        # Summary E A I L DC Ket
-        base    = 3 + n_days
-        summary = [
-            data.get('jumlah_hadir',  0),
-            data.get('jumlah_alpa',   0),
-            data.get('jumlah_izin',   0),
-            data.get('jumlah_cuti',   0),
-            data.get('jumlah_dokter', 0),
-            '',
-        ]
-        sum_widths = [sum_w]*5 + [ket_w]
-        for m, (val, w) in enumerate(zip(summary, sum_widths)):
-            _set_col_width(cells[base + m], w * MM)
-            _body_cell(cells[base + m], str(val), font_size=5.5)
-
-    doc.add_paragraph()
-    ket = doc.add_paragraph()
-    kr  = ket.add_run('Keterangan: ')
-    kr.bold = True
-    kr.font.size = Pt(7)
-    kt = ket.add_run('P=Hadir  L=Cuti  I=Izin  A=Alpa  DC=Surat Dokter  LB=Libur')
-    kt.font.size = Pt(7)
-
-def _word_program_pelaksanaan(doc, ctx):
-    _add_section_heading(doc, 'V. PROGRAM DAN PELAKSANAAN PEKERJAAN')
-
-    days_range            = ctx['days_range']
-    laporan_dengan_jadwal = ctx['laporan_dengan_jadwal']
-
-    for entry in laporan_dengan_jadwal:
-        p = doc.add_paragraph(f"{entry['area_nama']} — Supervisor: {entry['supervisor']}")
-        if p.runs:
-            p.runs[0].bold = True
-
-        cols  = 4 + len(days_range)
-        table = doc.add_table(rows=1, cols=cols)
-        table.style = 'Table Grid'
-        _add_table_header(
-            table,
-            ['Object', 'Standar', 'Job', 'Frek'] + [str(d) for d in days_range]
-        )
-
-        for item in entry['items']:
-            row = table.add_row().cells
-            row[0].text = item['nama_item']
-            row[1].text = item['sub_area']
-            row[2].text = item['task']
-            row[3].text = item['frek']
-            for j, mark in enumerate(item['hari_list']):
-                row[4 + j].text = mark
-
-        doc.add_paragraph()
-
-    doc.add_page_break()
+def add_page_break(doc):
+    p = doc.add_paragraph()
+    run = p.add_run()
+    br  = OxmlElement('w:br')
+    br.set(qn('w:type'), 'page')
+    run._r.append(br)
+    return p
 
 
-def _word_foto_progres(doc, ctx):
-    _add_section_heading(doc, 'VI. FOTO PROGRES')
-
-    current_area = None
-    for item in ctx['item_list']:
-        if not (item.foto_on_progress or item.foto_after):
-            continue
-
-        area_name = item.laporan.area.nama_area if item.laporan.area else 'Tanpa Area'
-        if area_name != current_area:
-            p = doc.add_paragraph(area_name)
-            if p.runs:
-                p.runs[0].bold = True
-            current_area = area_name
-
-        doc.add_paragraph(
-            f"{item.nama_item}"
-            + (f" — {item.tanggal.strftime('%d %B %Y')}" if item.tanggal else "")
-        )
-
-        if item.foto_on_progress:
-            try:
-                doc.add_picture(item.foto_on_progress.path, width=Inches(2.8))
-                doc.add_paragraph('On Progress')
-            except Exception:
-                doc.add_paragraph('[Foto On Progress tidak tersedia]')
-
-        if item.foto_after:
-            try:
-                doc.add_picture(item.foto_after.path, width=Inches(2.8))
-                doc.add_paragraph('After')
-            except Exception:
-                doc.add_paragraph('[Foto After tidak tersedia]')
-
-        doc.add_paragraph()
-
-    doc.add_page_break()
+def set_section_landscape(section):
+    """Ubah section menjadi landscape A4."""
+    section.orientation = 1   # WD_ORIENT.LANDSCAPE
+    section.page_width  = Cm(29.7)
+    section.page_height = Cm(21.0)
+    section.left_margin   = Cm(1.5)
+    section.right_margin  = Cm(1.5)
+    section.top_margin    = Cm(1.2)
+    section.bottom_margin = Cm(1.2)
 
 
-def _word_penutup(doc, ctx):
-    from docx.shared import Pt
+def set_section_portrait(section):
+    """Ubah section menjadi portrait A4."""
+    section.orientation = 0   # WD_ORIENT.PORTRAIT
+    section.page_width  = Cm(21.0)
+    section.page_height = Cm(29.7)
+    section.left_margin   = Cm(1.5)
+    section.right_margin  = Cm(1.5)
+    section.top_margin    = Cm(1.5)
+    section.bottom_margin = Cm(2.0)
 
-    _add_section_heading(doc, 'VII. PENUTUP')
-    doc.add_paragraph(
-        f"Demikian Laporan Bulanan periode bulan {ctx['nama_bulan']} {ctx['tahun']} ini dibuat "
-        f"sebagai bentuk pertanggungjawaban pelaksanaan jasa {ctx['jenis_jasa'].nama_jasa} "
-        f"di lingkungan {ctx['perusahaan'].nama_perusahaan}. "
-        f"Semua kegiatan telah dilaksanakan sesuai dengan jadwal dan standar yang telah ditetapkan."
-    )
 
-    doc.add_paragraph()
-    p = doc.add_paragraph(f"{ctx['perusahaan'].alamat or ''}, {ctx['nama_bulan']} {ctx['tahun']}")
+def content_width_dxa(section):
+    """Hitung lebar konten dalam DXA (twips)."""
+    return int((section.page_width - section.left_margin - section.right_margin) / 914.4 * 1440)
+
+
+def add_section_break(doc, landscape=False):
+    """
+    Tambahkan section break (next page) dan set orientasi section baru.
+    Return section baru.
+    """
+    new_section = doc.add_section(2)   # 2 = WD_SECTION.NEW_PAGE (next page break)
+    if landscape:
+        set_section_landscape(new_section)
+    else:
+        set_section_portrait(new_section)
+    return new_section
+
+
+# ══════════════════════════════════════════════════════
+# HEADING / PARAGRAPH HELPERS
+# ══════════════════════════════════════════════════════
+
+def add_section_header(doc, number, title, subtitle=''):
+    """Tambah section heading bergaya UNIPACS."""
+    p = doc.add_paragraph()
+    p.paragraph_format.space_before = Pt(8)
+    p.paragraph_format.space_after  = Pt(6)
+    # border bawah
+    pPr = p._p.get_or_add_pPr()
+    pBdr = OxmlElement('w:pBdr')
+    bottom = OxmlElement('w:bottom')
+    bottom.set(qn('w:val'),   'single')
+    bottom.set(qn('w:sz'),    '4')
+    bottom.set(qn('w:space'), '1')
+    bottom.set(qn('w:color'), 'C8D4E0')
+    pBdr.append(bottom)
+    pPr.append(pBdr)
+
+    run = p.add_run(f'{number}.  {title}')
+    run.bold       = True
+    run.font.size  = Pt(11)
+    run.font.color.rgb = C_NAVY
+    if subtitle:
+        p.add_run(f'  —  {subtitle}').font.color.rgb = C_GRAY
+    return p
+
+
+def add_info_bar(doc, text, sub=''):
+    """Bar biru navy di atas tabel (mirip .kal-info)."""
+    p = doc.add_paragraph()
+    p.paragraph_format.space_before = Pt(6)
+    p.paragraph_format.space_after  = Pt(0)
+    # background biru via highlight tidak bisa, pakai tabel 1 row
+    tbl = doc.add_table(rows=1, cols=1)
+    tbl.style = 'Table Grid'
+    cell = tbl.rows[0].cells[0]
+    set_cell_bg(cell, '1A3A5C')
+    set_cell_margins(cell, 60, 60, 120, 120)
+    cp = cell.paragraphs[0]
+    r  = cp.add_run(text)
+    r.bold           = True
+    r.font.size      = Pt(7.5)
+    r.font.color.rgb = C_WHITE
+    if sub:
+        r2 = cp.add_run(f'    {sub}')
+        r2.font.size      = Pt(6.5)
+        r2.font.color.rgb = RGBColor(0xdd, 0xee, 0xff)
+    return tbl
+
+
+def header_cell(cell, text, font_size=7, bg='1A3A5C'):
+    set_cell_bg(cell, bg)
+    set_cell_borders(cell, color='3A5F80', size=4)
+    set_cell_margins(cell, 40, 40, 80, 80)
+    set_cell_valign(cell, 'center')
+    p    = cell.paragraphs[0]
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run  = p.add_run(text)
+    run.bold           = True
+    run.font.size      = Pt(font_size)
+    run.font.color.rgb = C_WHITE
 
-    table = doc.add_table(rows=3, cols=3)
-    table.style = 'Table Grid'
 
-    supervisor_name = ''
-    for laporan in ctx['laporan_list']:
-        supervisor_name = laporan.supervisor.nama_lengkap or laporan.supervisor.username
+def data_cell(cell, text, font_size=7.5, align=WD_ALIGN_PARAGRAPH.LEFT,
+              bold=False, color=None, bg=None):
+    if bg:
+        set_cell_bg(cell, bg)
+    set_cell_borders(cell, color='D5DDE8', size=4)
+    set_cell_margins(cell, 40, 40, 80, 80)
+    set_cell_valign(cell, 'center')
+    p   = cell.paragraphs[0]
+    p.alignment = align
+    run = p.add_run(str(text) if text is not None else '-')
+    run.bold          = bold
+    run.font.size     = Pt(font_size)
+    if color:
+        run.font.color.rgb = color
+
+
+# ══════════════════════════════════════════════════════
+# SECTION BUILDERS
+# ══════════════════════════════════════════════════════
+
+def build_cover(doc, ctx):
+    p = doc.add_paragraph()
+    p.paragraph_format.space_before = Pt(40)
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r = p.add_run('LAPORAN BULANAN')
+    r.bold = True; r.font.size = Pt(24); r.font.color.rgb = C_NAVY
+
+    p2 = doc.add_paragraph(ctx['perusahaan'].nama_perusahaan)
+    p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p2.runs[0].bold = True; p2.runs[0].font.size = Pt(16); p2.runs[0].font.color.rgb = C_NAVY
+
+    p3 = doc.add_paragraph(ctx['jenis_jasa'].nama_jasa)
+    p3.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p3.runs[0].font.size = Pt(12); p3.runs[0].font.color.rgb = C_GRAY
+
+    p4 = doc.add_paragraph(f"Periode: {ctx['nama_bulan']} {ctx['tahun']}")
+    p4.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p4.runs[0].font.size = Pt(12)
+
+    if ctx['perusahaan'].alamat:
+        p5 = doc.add_paragraph(ctx['perusahaan'].alamat)
+        p5.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p5.runs[0].font.size = Pt(10); p5.runs[0].font.color.rgb = C_GRAY
+
+    # Info grid (tabel 2x2)
+    doc.add_paragraph()
+    tbl = doc.add_table(rows=2, cols=2)
+    tbl.style = 'Table Grid'
+    labels = [['Klien / Lokasi', 'Periode'],
+              ['Jenis Jasa',     'Supervisor']]
+    supervisor = ''
+    for l in ctx['laporan_list']:
+        supervisor = l.supervisor.nama_lengkap or l.supervisor.username
+        break
+    values = [
+        [ctx['perusahaan'].nama_perusahaan, f"{ctx['nama_bulan'].upper()} {ctx['tahun']}"],
+        [ctx['jenis_jasa'].nama_jasa,       supervisor],
+    ]
+    for ri, row in enumerate(tbl.rows):
+        for ci, cell in enumerate(row.cells):
+            set_cell_bg(cell, 'F4F7FB')
+            set_cell_borders(cell, color='C8D4E0')
+            set_cell_margins(cell)
+            p = cell.paragraphs[0]
+            rl = p.add_run(labels[ri][ci] + '\n')
+            rl.font.size = Pt(6.5); rl.font.color.rgb = C_LGRAY; rl.bold = True
+            rv = p.add_run(values[ri][ci])
+            rv.font.size = Pt(9); rv.font.color.rgb = C_NAVY; rv.bold = True
+
+    # Foto perusahaan
+    if hasattr(ctx['perusahaan'], 'foto_perusahaan') and ctx['perusahaan'].foto_perusahaan:
+        try:
+            doc.add_paragraph()
+            doc.add_picture(ctx['perusahaan'].foto_perusahaan.path, width=Cm(17))
+        except Exception:
+            pass
+
+
+def build_daftar_isi(doc, ctx):
+    add_section_header(doc, '', 'DAFTAR ISI', f"{ctx['nama_bulan']} {ctx['tahun']}")
+    items = [
+        ('I.',   'Data Karyawan',                    '3'),
+        ('II.',  'Struktur Organisasi',               '4'),
+        ('III.', 'Jadwal dan Ploting Kerja',          '5'),
+        ('IV.',  'Rekap Absensi Karyawan',            '6'),
+        ('V.',   'Program dan Pelaksanaan Pekerjaan', '7'),
+        ('VI.',  'Foto Progres',                      '8'),
+        ('VII.', 'Penutup',                           '9'),
+    ]
+    for num, title, pg in items:
+        p = doc.add_paragraph()
+        p.paragraph_format.space_before = Pt(4)
+        p.paragraph_format.space_after  = Pt(4)
+        # border bawah dotted
+        pPr = p._p.get_or_add_pPr()
+        pBdr = OxmlElement('w:pBdr')
+        bot = OxmlElement('w:bottom')
+        bot.set(qn('w:val'), 'dotted')
+        bot.set(qn('w:sz'), '4')
+        bot.set(qn('w:space'), '1')
+        bot.set(qn('w:color'), 'C8D4E0')
+        pBdr.append(bot)
+        pPr.append(pBdr)
+        r1 = p.add_run(f'{num}  {title}')
+        r1.font.size = Pt(11)
+        r1.bold = True if num in ['I.', 'II.', 'III.', 'IV.', 'V.', 'VI.', 'VII.'] else False
+        r1.font.color.rgb = C_NAVY
+
+
+def build_karyawan(doc, ctx):
+    add_section_header(doc, 'I', 'DATA KARYAWAN',
+                       f"Total {len(ctx['staff_list'])} karyawan aktif — {ctx['nama_bulan']} {ctx['tahun']}")
+
+    cols    = [5, 35, 18, 27, 15]   # persen
+    headers = ['No', 'Nama Lengkap', 'NIK', 'Sub Area', 'Status']
+
+    # hitung lebar kolom dalam DXA
+    sec   = doc.sections[-1]
+    total = content_width_dxa(sec)
+    widths = [int(total * c / 100) for c in cols]
+
+    tbl = doc.add_table(rows=1, cols=5)
+    tbl.style = 'Table Grid'
+    for i, cell in enumerate(tbl.rows[0].cells):
+        cell.width = Twips(widths[i])
+        header_cell(cell, headers[i])
+
+    for idx, rel in enumerate(ctx['staff_list']):
+        row   = tbl.add_row()
+        cells = row.cells
+        bg    = 'F9FBFD' if idx % 2 == 1 else 'FFFFFF'
+        subarea = ctx['staff_subarea_map'].get(rel.staff.pk, '-')
+        data_cell(cells[0], idx + 1,            align=WD_ALIGN_PARAGRAPH.CENTER, bg=bg)
+        data_cell(cells[1], (rel.staff.nama_lengkap or rel.staff.username).upper(),
+                  bold=True, bg=bg)
+        data_cell(cells[2], rel.staff.nik or '-', align=WD_ALIGN_PARAGRAPH.CENTER, bg=bg)
+        data_cell(cells[3], subarea,              bg=bg)
+        data_cell(cells[4], 'Aktif',              align=WD_ALIGN_PARAGRAPH.CENTER,
+                  color=C_GREEN, bg=bg)
+
+    if not ctx['staff_list']:
+        row = tbl.add_row()
+        data_cell(row.cells[0], 'Tidak ada data karyawan.',
+                  align=WD_ALIGN_PARAGRAPH.CENTER)
+
+
+def build_organisasi(doc, ctx):
+    add_section_header(doc, 'II', 'STRUKTUR ORGANISASI',
+                       f"Area {ctx['perusahaan'].nama_perusahaan}")
+
+    supervisor = ''
+    for l in ctx['laporan_list']:
+        supervisor = l.supervisor.nama_lengkap or l.supervisor.username
         break
 
-    table.cell(0, 0).text = 'Dibuat oleh,'
-    table.cell(0, 1).text = 'Diketahui oleh,'
-    table.cell(0, 2).text = 'Disetujui oleh,'
-    table.cell(1, 0).text = f'( {supervisor_name} )'
-    table.cell(1, 1).text = '( ________________________ )'
-    table.cell(1, 2).text = '( ________________________ )'
-    table.cell(2, 0).text = f'SPV {ctx["jenis_jasa"].nama_jasa}'
-    table.cell(2, 1).text = 'Kepala Supervisor'
-    table.cell(2, 2).text = ctx['perusahaan'].nama_perusahaan
+    # Kotak SPV
+    tbl = doc.add_table(rows=1, cols=1)
+    tbl.alignment = WD_TABLE_ALIGNMENT.CENTER
+    cell = tbl.rows[0].cells[0]
+    set_cell_bg(cell, '1A3A5C')
+    set_cell_margins(cell, 80, 80, 200, 200)
+    p = cell.paragraphs[0]
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r1 = p.add_run(f'SPV {ctx["jenis_jasa"].nama_jasa.upper()}\n')
+    r1.bold = True; r1.font.size = Pt(9); r1.font.color.rgb = C_WHITE
+    r2 = p.add_run(supervisor)
+    r2.font.size = Pt(8); r2.font.color.rgb = RGBColor(0xdd, 0xee, 0xff)
+
+    # Panah
+    pa = doc.add_paragraph('↓')
+    pa.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    pa.runs[0].font.color.rgb = C_NAVY
+
+    # Tabel staff (6 kolom per baris, auto-wrap)
+    cols_per_row = 6
+    staff_rows_data = [ctx['staff_list'][i:i+cols_per_row]
+                       for i in range(0, len(ctx['staff_list']), cols_per_row)]
+
+    sec   = doc.sections[-1]
+    total = content_width_dxa(sec)
+    col_w = total // cols_per_row
+
+    for row_data in staff_rows_data:
+        # pad biar selalu 6 kolom
+        while len(row_data) < cols_per_row:
+            row_data.append(None)
+        tbl2 = doc.add_table(rows=1, cols=cols_per_row)
+        tbl2.style = 'Table Grid'
+        for ci, rel in enumerate(row_data):
+            cell = tbl2.rows[0].cells[ci]
+            cell.width = Twips(col_w)
+            set_cell_margins(cell, 60, 60, 60, 60)
+            if rel is None:
+                set_cell_bg(cell, 'FFFFFF')
+                set_cell_borders(cell, color='FFFFFF')
+                continue
+            set_cell_bg(cell, 'F4F7FB')
+            set_cell_borders(cell, color='C8D4E0')
+            p = cell.paragraphs[0]
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            r = p.add_run(rel.staff.nama_lengkap or rel.staff.username)
+            r.bold = True; r.font.size = Pt(6.5); r.font.color.rgb = C_NAVY
+        doc.add_paragraph()
+
+
+def build_jadwal(doc, ctx):
+    """Section III — Jadwal (landscape)."""
+    add_section_header(doc, 'III', 'JADWAL DAN PLOTING KERJA',
+                       f"{ctx['nama_bulan']} {ctx['tahun']}")
+
+    sec   = doc.sections[-1]
+    total = content_width_dxa(sec)
+    days  = ctx['days_range']
+    n_days = len(days)
+
+    # Lebar kolom (DXA): no=300, item=1800, std=1500, task=1500, hari=sisa dibagi n_days
+    fixed = 300 + 1800 + 1500 + 1500
+    day_w = max(int((total - fixed) / n_days), 200)
+    col_widths = [300, 1800, 1500, 1500] + [day_w] * n_days
+
+    for sub_area_name, items in ctx['jadwal_kalender'].items():
+        staff_unik = items[0].get('staff_unik', '-') if items else '-'
+        add_info_bar(doc,
+                     f'PELAKSANAAN KERJA BULANAN — {ctx["jenis_jasa"].nama_jasa.upper()}',
+                     f'{ctx["perusahaan"].nama_perusahaan.upper()} — {ctx["nama_bulan"]} {ctx["tahun"]}')
+
+        # Bar lokasi
+        loc_p = doc.add_paragraph()
+        loc_p.paragraph_format.space_before = Pt(0)
+        loc_p.paragraph_format.space_after  = Pt(2)
+        r = loc_p.add_run(f'Lokasi: {sub_area_name}    Staff: {staff_unik}')
+        r.font.size = Pt(7); r.font.color.rgb = C_NAVY; r.bold = True
+
+        tbl = doc.add_table(rows=1, cols=4 + n_days)
+        tbl.style = 'Table Grid'
+
+        # Header row
+        hrow = tbl.rows[0]
+        for i, cell in enumerate(hrow.cells):
+            cell.width = Twips(col_widths[i])
+        header_cell(hrow.cells[0], 'No',       6)
+        header_cell(hrow.cells[1], 'Item Job',  6, bg='2C4E6E')
+        header_cell(hrow.cells[2], 'Standard',  6, bg='2C4E6E')
+        header_cell(hrow.cells[3], 'Task',      6, bg='2C4E6E')
+        for di, d in enumerate(days):
+            header_cell(hrow.cells[4 + di], str(d), 5, bg='2C4E6E')
+
+        for idx, item in enumerate(items):
+            row  = tbl.add_row()
+            bg   = 'F7F9FC' if idx % 2 == 1 else 'FFFFFF'
+            for ci in range(len(row.cells)):
+                row.cells[ci].width = Twips(col_widths[ci])
+            data_cell(row.cells[0], idx + 1,          font_size=6, align=WD_ALIGN_PARAGRAPH.CENTER, bg=bg)
+            data_cell(row.cells[1], item['nama_item'], font_size=6, bg=bg)
+            data_cell(row.cells[2], item['standar'],   font_size=6, bg=bg)
+            data_cell(row.cells[3], item['task'],      font_size=6, bg=bg)
+            for di, d in enumerate(days):
+                mark = 'A' if d in item['tanggal_aktif'] else ''
+                data_cell(row.cells[4 + di], mark, font_size=5,
+                          align=WD_ALIGN_PARAGRAPH.CENTER,
+                          bold=bool(mark), color=C_NAVY if mark else None, bg=bg)
+
+        doc.add_paragraph()
+
+
+def build_absensi(doc, ctx):
+    """Section IV — Absensi (landscape)."""
+    add_section_header(doc, 'IV', 'REKAP ABSENSI KARYAWAN',
+                       f"Divisi: {ctx['jenis_jasa'].nama_jasa}  —  {ctx['nama_bulan'].upper()} {ctx['tahun']}")
+
+    # Summary cards (tabel 5 kolom)
+    tbl_s = doc.add_table(rows=2, cols=5)
+    tbl_s.style = 'Table Grid'
+    labels = ['Hadir', 'Alpa', 'Izin', 'Cuti', 'Srt. Dokter']
+    colors = ['1A6B3A', 'C0392B', 'BF6B00', '1A3A5C', '005BB5']
+    vals   = [
+        ctx['absensi_totals']['hadir'],
+        ctx['absensi_totals']['alpa'],
+        ctx['absensi_totals']['izin'],
+        ctx['absensi_totals']['cuti'],
+        ctx['absensi_totals']['dokter'],
+    ]
+    for ci in range(5):
+        header_cell(tbl_s.rows[0].cells[ci], labels[ci], 7, bg=colors[ci])
+        cell = tbl_s.rows[1].cells[ci]
+        set_cell_bg(cell, 'FFFFFF')
+        set_cell_borders(cell, color='C8D4E0')
+        set_cell_margins(cell, 60, 60, 60, 60)
+        p = cell.paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r = p.add_run(str(vals[ci]))
+        r.bold = True; r.font.size = Pt(14)
+        r.font.color.rgb = RGBColor(
+            int(colors[ci][:2], 16),
+            int(colors[ci][2:4], 16),
+            int(colors[ci][4:], 16),
+        )
+    doc.add_paragraph()
+
+    # Tabel absensi 31 kolom
+    sec   = doc.sections[-1]
+    total = content_width_dxa(sec)
+    days  = ctx['days_range']
+    n_days = len(days)
+
+    fixed = 280 + 1400 + 900   # no + nama + nik
+    sum_cols = 5                # P A I L DC
+    ket_col  = 600
+    day_w    = max(int((total - fixed - sum_cols * 280 - ket_col) / n_days), 200)
+
+    col_widths = ([280, 1400, 900]
+                  + [day_w] * n_days
+                  + [280, 280, 280, 280, 280, ket_col])
+
+    tbl = doc.add_table(rows=1, cols=3 + n_days + 6)
+    tbl.style = 'Table Grid'
+
+    hrow = tbl.rows[0]
+    for i, cell in enumerate(hrow.cells):
+        cell.width = Twips(col_widths[i])
+    header_cell(hrow.cells[0], 'No',   5.5)
+    header_cell(hrow.cells[1], 'Nama', 5.5)
+    header_cell(hrow.cells[2], 'NIK',  5.5)
+    for di, d in enumerate(days):
+        info = ctx['info_hari'].get(d, {})
+        bg   = 'C0392B' if info.get('is_libur') else '1A3A5C'
+        header_cell(hrow.cells[3 + di], str(d), 5, bg=bg)
+    for ci2, lbl in enumerate(['P', 'A', 'I', 'L', 'DC', 'Ket']):
+        header_cell(hrow.cells[3 + n_days + ci2], lbl, 5.5)
+
+    status_colors = {
+        'P': C_GREEN, 'A': C_RED, 'I': C_ORANGE,
+        'L': C_NAVY,  'DC': C_BLUE, 'LB': C_LGRAY,
+    }
+
+    for idx, (staff_id, data) in enumerate(ctx['absensi_kalender'].items()):
+        row = tbl.add_row()
+        bg  = 'F7F9FC' if idx % 2 == 1 else 'FFFFFF'
+        for ci in range(len(row.cells)):
+            row.cells[ci].width = Twips(col_widths[ci])
+        data_cell(row.cells[0], idx + 1, font_size=5.5,
+                  align=WD_ALIGN_PARAGRAPH.CENTER, bg=bg)
+        data_cell(row.cells[1], data['nama'].upper(), font_size=5.5,
+                  bold=True, bg=bg)
+        data_cell(row.cells[2], data['nik'], font_size=5.5,
+                  align=WD_ALIGN_PARAGRAPH.CENTER, bg=bg)
+
+        for di, h in enumerate(data['hari_list']):
+            s      = h['status']
+            is_lib = h['is_libur']
+            cell   = row.cells[3 + di]
+            cell_bg = 'FDE8E8' if is_lib else bg
+            color   = status_colors.get(s, RGBColor(0x11, 0x11, 0x11))
+            data_cell(cell, s, font_size=4.5,
+                      align=WD_ALIGN_PARAGRAPH.CENTER,
+                      bold=(s in ('P', 'A', 'I', 'L', 'DC')),
+                      color=color, bg=cell_bg)
+
+        sum_vals = [
+            (data.get('jumlah_hadir',  0), C_GREEN),
+            (data.get('jumlah_alpa',   0), C_RED),
+            (data.get('jumlah_izin',   0), C_ORANGE),
+            (data.get('jumlah_cuti',   0), C_NAVY),
+            (data.get('jumlah_dokter', 0), C_BLUE),
+        ]
+        for ci2, (val, col) in enumerate(sum_vals):
+            data_cell(row.cells[3 + n_days + ci2], str(val), font_size=5.5,
+                      align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, color=col, bg=bg)
+        data_cell(row.cells[3 + n_days + 5], '', font_size=5.5, bg=bg)
+
+    # Baris TOTAL
+    if ctx['absensi_kalender']:
+        trow = tbl.add_row()
+        for ci in range(len(trow.cells)):
+            trow.cells[ci].width = Twips(col_widths[ci])
+            set_cell_bg(trow.cells[ci], 'F0F4FA')
+            set_cell_borders(trow.cells[ci], color='1A3A5C', size=6)
+        # Merge 3 kolom pertama untuk label TOTAL
+        trow.cells[0].merge(trow.cells[2])
+        p = trow.cells[0].paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        r = p.add_run('TOTAL')
+        r.bold = True; r.font.size = Pt(6); r.font.color.rgb = C_NAVY
+        for di in range(n_days):
+            data_cell(trow.cells[1 + di], '', font_size=5, bg='F0F4FA')
+        for ci2, (val, col) in enumerate([
+            (ctx['absensi_totals']['hadir'],  C_GREEN),
+            (ctx['absensi_totals']['alpa'],   C_RED),
+            (ctx['absensi_totals']['izin'],   C_ORANGE),
+            (ctx['absensi_totals']['cuti'],   C_NAVY),
+            (ctx['absensi_totals']['dokter'], C_BLUE),
+        ]):
+            data_cell(trow.cells[1 + n_days + ci2], str(val),
+                      font_size=5.5, align=WD_ALIGN_PARAGRAPH.CENTER,
+                      bold=True, color=col, bg='F0F4FA')
+
+    # Keterangan
+    kp = doc.add_paragraph()
+    kp.paragraph_format.space_before = Pt(4)
+    kp.add_run('Keterangan: ').bold = True
+    kp.add_run('P=Hadir  A=Alpa  I=Izin  L=Cuti  DC=Surat Dokter  LB=Libur'
+               ).font.size = Pt(7)
+
+
+def build_program(doc, ctx):
+    """Section V — Program & Pelaksanaan (landscape)."""
+    add_section_header(doc, 'V', 'PROGRAM DAN PELAKSANAAN PEKERJAAN',
+                       f"{ctx['perusahaan'].nama_perusahaan} — {ctx['nama_bulan']} {ctx['tahun']}")
+
+    sec   = doc.sections[-1]
+    total = content_width_dxa(sec)
+    days  = ctx['days_range']
+    n_days = len(days)
+
+    fixed = 1600 + 1400 + 1200 + 300   # obj + std + job + frek
+    day_w = max(int((total - fixed) / n_days), 200)
+    col_widths = [1600, 1400, 1200, 300] + [day_w] * n_days
+
+    for entry in ctx['laporan_dengan_jadwal']:
+        add_info_bar(doc,
+                     f'MONTHLY SCHEDULE {ctx["jenis_jasa"].nama_jasa.upper()}',
+                     ctx['perusahaan'].nama_perusahaan.upper())
+        loc_p = doc.add_paragraph()
+        r = loc_p.add_run(
+            f'Lokasi: {entry["area_nama"]}    '
+            f'Supervisor: {entry["supervisor"]}    '
+            f'Bulan: {ctx["nama_bulan"]} {ctx["tahun"]}'
+        )
+        r.font.size = Pt(7); r.font.color.rgb = C_NAVY; r.bold = True
+
+        tbl = doc.add_table(rows=1, cols=4 + n_days)
+        tbl.style = 'Table Grid'
+        hrow = tbl.rows[0]
+        for i in range(len(hrow.cells)):
+            hrow.cells[i].width = Twips(col_widths[i])
+        header_cell(hrow.cells[0], 'Object',       6, bg='2C4E6E')
+        header_cell(hrow.cells[1], 'Standar',       6, bg='2C4E6E')
+        header_cell(hrow.cells[2], 'Job/Pekerjaan', 6, bg='2C4E6E')
+        header_cell(hrow.cells[3], 'Frek',          6, bg='2C4E6E')
+        for di, d in enumerate(days):
+            header_cell(hrow.cells[4 + di], str(d), 5, bg='2C4E6E')
+
+        for idx, item in enumerate(entry['items']):
+            row = tbl.add_row()
+            bg  = 'F7F9FC' if idx % 2 == 1 else 'FFFFFF'
+            for ci in range(len(row.cells)):
+                row.cells[ci].width = Twips(col_widths[ci])
+            data_cell(row.cells[0], item['nama_item'], font_size=6, bold=True, bg=bg)
+            data_cell(row.cells[1], item['standar'],   font_size=6, bg=bg)
+            data_cell(row.cells[2], item['task'],      font_size=6, bg=bg)
+            data_cell(row.cells[3], item['frek'],      font_size=6,
+                      align=WD_ALIGN_PARAGRAPH.CENTER, bg=bg)
+            for di, mark in enumerate(item['hari_list']):
+                data_cell(row.cells[4 + di], mark, font_size=5,
+                          align=WD_ALIGN_PARAGRAPH.CENTER,
+                          bold=bool(mark), color=C_NAVY if mark else None, bg=bg)
+
+        doc.add_paragraph()
+
+
+def _foto_cell_inner(cell, item_title, tanggal_str, foto_progress, foto_after, foto_width_cm):
+    """
+    Isi satu cell (setengah halaman) dengan:
+      - judul item + tanggal (center, bold)
+      - sub-tabel 2 kolom: On Progress | After
+    """
+    set_cell_bg(cell, 'FFFFFF')
+    set_cell_borders(cell, color='C8D4E0')
+    set_cell_margins(cell, 60, 60, 80, 80)
+
+    # Judul item
+    p_title = cell.paragraphs[0]
+    p_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    rt = p_title.add_run(item_title.upper())
+    rt.bold = True; rt.font.size = Pt(7.5); rt.font.color.rgb = C_NAVY
+    if tanggal_str:
+        p_title.add_run(f'  —  {tanggal_str}').font.color.rgb = C_GRAY
+
+    # Sub-tabel 2 kolom: On Progress | After
+    sub_tbl = OxmlElement('w:tbl')
+
+    def make_foto_col(label, foto_field):
+        """Buat satu kolom (label + foto/N/A + caption) sebagai XML tc."""
+        tc = OxmlElement('w:tc')
+        tcPr = OxmlElement('w:tcPr')
+        tcW = OxmlElement('w:tcW')
+        tcW.set(qn('w:w'), '0'); tcW.set(qn('w:type'), 'auto')
+        tcPr.append(tcW)
+        tc.append(tcPr)
+
+        # paragraf label
+        p_lbl = OxmlElement('w:p')
+        pPr   = OxmlElement('w:pPr')
+        jc    = OxmlElement('w:jc'); jc.set(qn('w:val'), 'center')
+        pPr.append(jc); p_lbl.append(pPr)
+        r_lbl = OxmlElement('w:r')
+        rPr   = OxmlElement('w:rPr')
+        b     = OxmlElement('w:b')
+        sz    = OxmlElement('w:sz'); sz.set(qn('w:val'), '12')   # 6pt
+        color = OxmlElement('w:color'); color.set(qn('w:val'), '607080')
+        rPr.append(b); rPr.append(sz); rPr.append(color)
+        r_lbl.append(rPr)
+        t = OxmlElement('w:t'); t.text = label.upper()
+        r_lbl.append(t); p_lbl.append(r_lbl)
+        tc.append(p_lbl)
+
+        return tc   # foto akan ditambah via python-docx di bawah
+
+    # Kita tidak bisa insert gambar via pure XML — pakai trik:
+    # tambahkan sub-tabel dulu sebagai tabel biasa via doc.add_table,
+    # lalu pindahkan ke dalam cell.
+    # Cara termudah: cukup tambahkan paragraf-paragraf ke cell langsung.
+
+    # Label row
+    p_labels = cell.add_paragraph()
+    p_labels.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_labels.paragraph_format.space_before = Pt(4)
+
+    # Buat tabel 1 row 4 kolom: [label_prog | foto_prog | label_after | foto_after]
+    # tapi lebih simpel: 2 kolom, masing-masing isi label+foto
+    # Kita pakai tabel nested sederhana
+    inner_tbl = cell._tc.getparent().getparent()   # placeholder — kita pakai cara lain
+
+    # Cara paling reliable: tambah paragraf label, lalu gambar, side by side tidak bisa
+    # di python-docx tanpa nested table.
+    # Kita pakai nested table approach yang proper:
+    from docx.oxml import parse_xml
+    from docx.oxml.ns import nsmap
+
+    # Tambahkan nested tabel 1 row 2 kolom langsung ke cell body
+    nested = OxmlElement('w:tbl')
+    # tblPr
+    ntPr = OxmlElement('w:tblPr')
+    ntW  = OxmlElement('w:tblW'); ntW.set(qn('w:w'), '0'); ntW.set(qn('w:type'), 'auto')
+    ntPr.append(ntW)
+    ntLayout = OxmlElement('w:tblLayout'); ntLayout.set(qn('w:type'), 'autofit')
+    ntPr.append(ntLayout)
+    nested.append(ntPr)
+
+    tr = OxmlElement('w:tr')
+    for label, foto_field in [('ON PROGRESS', foto_progress), ('AFTER', foto_after)]:
+        tc = OxmlElement('w:tc')
+        tcPr2 = OxmlElement('w:tcPr')
+        tcW2  = OxmlElement('w:tcW'); tcW2.set(qn('w:w'), '0'); tcW2.set(qn('w:type'), 'auto')
+        tcPr2.append(tcW2)
+        tc.append(tcPr2)
+
+        # Label paragraph
+        p_l = OxmlElement('w:p')
+        ppPr = OxmlElement('w:pPr')
+        jc2  = OxmlElement('w:jc'); jc2.set(qn('w:val'), 'center')
+        ppPr.append(jc2); p_l.append(ppPr)
+        r_l = OxmlElement('w:r')
+        rPr2 = OxmlElement('w:rPr')
+        b2   = OxmlElement('w:b')
+        sz2  = OxmlElement('w:sz'); sz2.set(qn('w:val'), '12')
+        col2 = OxmlElement('w:color'); col2.set(qn('w:val'), '607080')
+        rPr2.append(b2); rPr2.append(sz2); rPr2.append(col2)
+        r_l.append(rPr2)
+        t_l = OxmlElement('w:t'); t_l.text = label
+        r_l.append(t_l); p_l.append(r_l)
+        tc.append(p_l)
+
+        tr.append(tc)
+    nested.append(tr)
+    cell._tc.append(nested)
+
+    # Sekarang tambahkan gambar via paragraf biasa di cell
+    # (nested table di atas hanya untuk label row)
+    # Untuk gambar, kita tambah paragraf baru di cell dan insert picture
+    for label, foto_field in [('ON PROGRESS', foto_progress), ('AFTER', foto_after)]:
+        pass   # handled below via paragraphs
+
+    # Reset: gunakan approach yang benar-benar works — hapus nested table,
+    # cukup tambahkan label + gambar dalam paragraf yang sama (center)
+    cell._tc.remove(nested)
+
+    for label, foto_field in [('ON PROGRESS', foto_progress), ('AFTER', foto_after)]:
+        p_lbl2 = cell.add_paragraph()
+        p_lbl2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_lbl2.paragraph_format.space_before = Pt(3)
+        rl2 = p_lbl2.add_run(label)
+        rl2.bold = True; rl2.font.size = Pt(6.5); rl2.font.color.rgb = C_GRAY
+
+        p_img = cell.add_paragraph()
+        p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        if foto_field:
+            try:
+                p_img.add_run().add_picture(foto_field.path, width=Cm(foto_width_cm))
+            except Exception:
+                p_img.add_run('[ Foto tidak dapat dimuat ]').font.color.rgb = C_LGRAY
+        else:
+            rna = p_img.add_run('N/A')
+            rna.font.color.rgb = C_LGRAY; rna.italic = True; rna.font.size = Pt(8)
+
+        # Caption
+        p_cap = cell.add_paragraph()
+        p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        rc = p_cap.add_run(item_title.upper())
+        rc.font.size = Pt(6.5); rc.font.color.rgb = C_GRAY
+
+
+def build_foto(doc, ctx):
+    """
+    Section VI — Foto Progres (portrait).
+    Layout: 2 item per baris, masing-masing item punya On Progress + After.
+    Persis seperti tampilan PDF.
+    """
+    add_section_header(doc, 'VI', 'FOTO DOKUMENTASI PROGRES',
+                       f"{ctx['nama_bulan']} {ctx['tahun']}")
+
+    from itertools import groupby
+    keyfunc = lambda item: (item.sub_area.nama_sub_area if item.sub_area else 'Tanpa Sub Area')
+    sorted_items = sorted(ctx['item_list'], key=keyfunc)
+
+    sec   = doc.sections[-1]
+    total = content_width_dxa(sec)
+    half  = total // 2
+    # Foto width: tiap cell setengah halaman, ada 2 foto per cell → tiap foto ~1/4 halaman
+    foto_w_cm = 3.8  # cm per foto, cukup untuk 2 foto side by side dalam setengah halaman
+
+    for sub_area_name, group_items in groupby(sorted_items, key=keyfunc):
+        # Filter hanya item yang punya foto
+        items_with_foto = [i for i in group_items
+                           if i.foto_on_progress or i.foto_after]
+        if not items_with_foto:
+            continue
+
+        # Sub area heading
+        p = doc.add_paragraph()
+        p.paragraph_format.space_before = Pt(8)
+        p.paragraph_format.space_after  = Pt(4)
+        pPr = p._p.get_or_add_pPr()
+        pBdr = OxmlElement('w:pBdr')
+        bot = OxmlElement('w:bottom')
+        bot.set(qn('w:val'), 'single'); bot.set(qn('w:sz'), '6')
+        bot.set(qn('w:space'), '1'); bot.set(qn('w:color'), '1A3A5C')
+        pBdr.append(bot); pPr.append(pBdr)
+        r = p.add_run(sub_area_name.upper())
+        r.bold = True; r.font.size = Pt(10); r.font.color.rgb = C_NAVY
+
+        # Pasangkan item 2 per baris
+        pairs = [items_with_foto[i:i+2] for i in range(0, len(items_with_foto), 2)]
+
+        for pair in pairs:
+            # Tabel 2 kolom (tiap kolom = 1 item)
+            tbl = doc.add_table(rows=1, cols=2)
+            tbl.style = 'Table Grid'
+
+            for ci in range(2):
+                cell = tbl.rows[0].cells[ci]
+                cell.width = Twips(half)
+
+                if ci < len(pair):
+                    item = pair[ci]
+                    tanggal_str = item.tanggal.strftime('%d %b %Y') if item.tanggal else ''
+                    _foto_cell_inner(
+                        cell,
+                        item.nama_item,
+                        tanggal_str,
+                        item.foto_on_progress,
+                        item.foto_after,
+                        foto_w_cm,
+                    )
+                else:
+                    # Cell kosong untuk baris ganjil
+                    set_cell_bg(cell, 'FFFFFF')
+                    set_cell_borders(cell, color='FFFFFF')
+
+            doc.add_paragraph()
+
+
+def build_penutup(doc, ctx):
+    """Section VII — Penutup (portrait)."""
+    add_section_header(doc, 'VII', 'PENUTUP')
+
+    supervisor = ''
+    for l in ctx['laporan_list']:
+        supervisor = l.supervisor.nama_lengkap or l.supervisor.username
+        break
+
+    p = doc.add_paragraph()
+    p.paragraph_format.space_before = Pt(8)
+    p.paragraph_format.space_after  = Pt(8)
+    p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+    txt = (
+        f'Demikian Laporan Bulanan periode bulan {ctx["nama_bulan"]} {ctx["tahun"]} '
+        f'ini dibuat sebagai bentuk pertanggungjawaban pelaksanaan jasa '
+        f'{ctx["jenis_jasa"].nama_jasa} di lingkungan '
+        f'{ctx["perusahaan"].nama_perusahaan}. '
+        f'Semua kegiatan telah dilaksanakan sesuai dengan jadwal dan standar yang telah '
+        f'ditetapkan. Kami berkomitmen untuk terus meningkatkan kualitas layanan demi '
+        f'kepuasan seluruh pengguna fasilitas.'
+    )
+    r = p.add_run(txt)
+    r.font.size = Pt(10)
+
+    # Lokasi & tanggal
+    loc_p = doc.add_paragraph()
+    loc_p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    loc_p.paragraph_format.space_before = Pt(16)
+    loc_p.add_run(
+        f'{ctx["perusahaan"].alamat or "Karawang"}, {ctx["nama_bulan"]} {ctx["tahun"]}'
+    ).font.color.rgb = C_GRAY
+
+    # Tabel TTD
+    doc.add_paragraph()
+    tbl = doc.add_table(rows=1, cols=3)
+    tbl.style = 'Table Grid'
+    ttd_data = [
+        ('Dibuat oleh,',    supervisor,              f'SPV {ctx["jenis_jasa"].nama_jasa}'),
+        ('Diketahui oleh,', '_' * 25,               'Kepala Supervisor'),
+        ('Disetujui oleh,', '_' * 25,               ctx['perusahaan'].nama_perusahaan),
+    ]
+    sec   = doc.sections[-1]
+    total = content_width_dxa(sec)
+    col_w = total // 3
+    for ci, (label, name, role) in enumerate(ttd_data):
+        cell = tbl.rows[0].cells[ci]
+        cell.width = Twips(col_w)
+        set_cell_bg(cell, 'FFFFFF')
+        set_cell_borders(cell, color='C8D4E0')
+        set_cell_margins(cell, 80, 80, 120, 120)
+        p = cell.paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p.add_run(label + '\n\n\n\n').font.size = Pt(9)
+        r_name = p.add_run(f'( {name} )\n')
+        r_name.bold = True; r_name.font.size = Pt(9)
+        r_role = p.add_run(role)
+        r_role.font.size = Pt(8); r_role.font.color.rgb = C_GRAY
+
+
+# ══════════════════════════════════════════════════════
+# MAIN: _generate_word
+# ══════════════════════════════════════════════════════
+
+def _generate_word(request, context):
+    """
+    Drop-in replacement untuk _generate_word di views.py lo.
+    Import fungsi ini lalu ganti fungsi lama.
+    """
+    from django.http import HttpResponse
+
+    try:
+        doc = Document()
+
+        # Default style
+        style = doc.styles['Normal']
+        style.font.name = 'Times New Roman'
+        style.font.size = Pt(9)
+
+        # ── Section 1: Cover + Daftar Isi + Karyawan + Organisasi (portrait) ──
+        sec1 = doc.sections[0]
+        set_section_portrait(sec1)
+
+        build_cover(doc, context)
+        add_page_break(doc)
+        build_daftar_isi(doc, context)
+        add_page_break(doc)
+        build_karyawan(doc, context)
+        add_page_break(doc)
+        build_organisasi(doc, context)
+
+        # ── Section 2: Jadwal (landscape) ──
+        add_section_break(doc, landscape=True)
+        build_jadwal(doc, context)
+
+        # ── Section 3: Absensi (landscape) ──
+        add_section_break(doc, landscape=True)
+        build_absensi(doc, context)
+
+        # ── Section 4: Program (landscape) ──
+        add_section_break(doc, landscape=True)
+        build_program(doc, context)
+
+        # ── Section 5: Foto + Penutup (portrait) ──
+        add_section_break(doc, landscape=False)
+        build_foto(doc, context)
+        add_page_break(doc)
+        build_penutup(doc, context)
+
+        # ── Save ke buffer ──
+        buf = io.BytesIO()
+        doc.save(buf)
+        buf.seek(0)
+
+        response = HttpResponse(
+            buf.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        )
+        response['Content-Disposition'] = (
+            f'attachment; filename="{context["nama_file"]}.docx"'
+        )
+        return response
+
+    except Exception as e:
+        import traceback
+        from django.http import HttpResponse
+        return HttpResponse(
+            f'Error Word:\n{traceback.format_exc()}',
+            status=500,
+            content_type='text/plain',
+        )

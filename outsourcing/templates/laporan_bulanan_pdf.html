@@ -953,7 +953,7 @@ table.kal tbody tr:nth-child(even) td { background: #f7f9fc; }
           <tr>
             <td class="kc-no" style="text-align:center;">{{ forloop.counter }}</td>
             <td class="kc-item">{{ item.nama_item }}</td>
-            <td class="kc-std">{{ item.sub_area }}</td>
+            <td class="kc-std">{{ item.standar }}</td>
             <td class="kc-task">{{ item.task }}</td>
             {% for day in days_range %}
             <td class="kc-day">{% if day in item.tanggal_aktif %}<span class="sMark">A</span>{% endif %}</td>
@@ -979,9 +979,6 @@ table.kal tbody tr:nth-child(even) td { background: #f7f9fc; }
   </div>
 
 </div>
-
-
-
 
 <!-- ══════════════════════ IV. ABSENSI ══════════════════════ -->
 <div class="page-wrap page-break">
@@ -1009,24 +1006,60 @@ table.kal tbody tr:nth-child(even) td { background: #f7f9fc; }
       </div>
     </div>
 
+    <!-- ── Summary Cards ── -->
+    <table style="width:100%;border-collapse:collapse;margin-bottom:8px;table-layout:fixed;">
+      <tr>
+        <td style="padding:0 3px 0 0;">
+          <div style="background:#e6f4ec;border:1px solid #b2d8be;border-radius:3px;padding:5px 8px;text-align:center;">
+            <div style="font-size:5.5pt;font-weight:700;color:#1a6b3a;text-transform:uppercase;letter-spacing:0.5px;">Hadir</div>
+            <div style="font-size:14pt;font-weight:700;color:#1a6b3a;line-height:1.2;">{{ absensi_totals.hadir }}</div>
+            <div style="font-size:5pt;color:#607080;">hari-orang</div>
+          </div>
+        </td>
+        <td style="padding:0 3px;">
+          <div style="background:#fde8e8;border:1px solid #f0b8b8;border-radius:3px;padding:5px 8px;text-align:center;">
+            <div style="font-size:5.5pt;font-weight:700;color:#c0392b;text-transform:uppercase;letter-spacing:0.5px;">Alpa</div>
+            <div style="font-size:14pt;font-weight:700;color:#c0392b;line-height:1.2;">{{ absensi_totals.alpa }}</div>
+            <div style="font-size:5pt;color:#607080;">hari-orang</div>
+          </div>
+        </td>
+        <td style="padding:0 3px;">
+          <div style="background:#fff8e6;border:1px solid #f0d898;border-radius:3px;padding:5px 8px;text-align:center;">
+            <div style="font-size:5.5pt;font-weight:700;color:#bf6b00;text-transform:uppercase;letter-spacing:0.5px;">Izin</div>
+            <div style="font-size:14pt;font-weight:700;color:#bf6b00;line-height:1.2;">{{ absensi_totals.izin }}</div>
+            <div style="font-size:5pt;color:#607080;">hari-orang</div>
+          </div>
+        </td>
+        <td style="padding:0 3px;">
+          <div style="background:#eaf0fb;border:1px solid #b8c8f0;border-radius:3px;padding:5px 8px;text-align:center;">
+            <div style="font-size:5.5pt;font-weight:700;color:#1a3a5c;text-transform:uppercase;letter-spacing:0.5px;">Cuti</div>
+            <div style="font-size:14pt;font-weight:700;color:#1a3a5c;line-height:1.2;">{{ absensi_totals.cuti }}</div>
+            <div style="font-size:5pt;color:#607080;">hari-orang</div>
+          </div>
+        </td>
+        <td style="padding:0 0 0 3px;">
+          <div style="background:#e8f2ff;border:1px solid #a8c8f0;border-radius:3px;padding:5px 8px;text-align:center;">
+            <div style="font-size:5.5pt;font-weight:700;color:#005bb5;text-transform:uppercase;letter-spacing:0.5px;">Srt. Dokter</div>
+            <div style="font-size:14pt;font-weight:700;color:#005bb5;line-height:1.2;">{{ absensi_totals.dokter }}</div>
+            <div style="font-size:5pt;color:#607080;">hari-orang</div>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- ── Tabel Absensi ── -->
     <table class="kal">
       <thead>
         <tr>
           <th class="kc-no">No</th>
           <th class="kc-nama">Nama</th>
           <th class="kc-nik">NIK</th>
-
           {% for day in days_range %}
-            {# FIX: gunakan {% with %} dulu untuk ambil dict, #}
-            {# lalu akses .is_libur sebagai attribute — bukan chain langsung di filter #}
             {% with day_info=info_hari|get_item:day %}
-              <th class="kc-day {% if day_info.is_libur %}hari-libur{% endif %}">
-                {{ day }}
-              </th>
+              <th class="kc-day {% if day_info.is_libur %}hari-libur{% endif %}">{{ day }}</th>
             {% endwith %}
           {% endfor %}
-
-          <th class="kc-sum" title="Hadir">E</th>
+          <th class="kc-sum" title="Hadir">P</th>
           <th class="kc-sum" title="Alpa">A</th>
           <th class="kc-sum" title="Izin">I</th>
           <th class="kc-sum" title="Cuti">L</th>
@@ -1037,12 +1070,10 @@ table.kal tbody tr:nth-child(even) td { background: #f7f9fc; }
       <tbody>
         {% for staff_id, data in absensi_kalender.items %}
         <tr>
-          <td class="kc-no"   style="text-align:center;">{{ forloop.counter }}</td>
+          <td class="kc-no" style="text-align:center;">{{ forloop.counter }}</td>
           <td class="kc-nama" style="font-weight:700;">{{ data.nama|upper }}</td>
           <td class="kc-nik">{{ data.nik }}</td>
-
           {% for h in data.hari_list %}
-          {# h adalah dict {'status': '...', 'is_libur': True/False} #}
           <td class="kc-day {% if h.is_libur %}cell-libur{% endif %}">
             {% with s=h.status %}
               {% if s == 'P'  %}<span class="sP">P</span>
@@ -1056,7 +1087,6 @@ table.kal tbody tr:nth-child(even) td { background: #f7f9fc; }
             {% endwith %}
           </td>
           {% endfor %}
-
           <td class="kc-sum" style="color:#1a6b3a;">{{ data.jumlah_hadir|default:"0"  }}</td>
           <td class="kc-sum" style="color:#c0392b;">{{ data.jumlah_alpa|default:"0"   }}</td>
           <td class="kc-sum" style="color:#bf6b00;">{{ data.jumlah_izin|default:"0"   }}</td>
@@ -1072,6 +1102,42 @@ table.kal tbody tr:nth-child(even) td { background: #f7f9fc; }
           </td>
         </tr>
         {% endfor %}
+
+        <!-- ── Baris TOTAL ── -->
+        {% if absensi_kalender %}
+        <tr style="background:#f0f4fa;">
+          <td colspan="3"
+              style="font-weight:700;font-size:6pt;color:#1a3a5c;
+                     text-align:right;padding:3px 5px;border-top:2px solid #1a3a5c;">
+            TOTAL
+          </td>
+          {% for day in days_range %}
+          <td class="kc-day" style="border-top:2px solid #1a3a5c;background:#f0f4fa;"></td>
+          {% endfor %}
+          <td class="kc-sum"
+              style="font-weight:700;color:#1a6b3a;border-top:2px solid #1a3a5c;">
+            {{ absensi_totals.hadir }}
+          </td>
+          <td class="kc-sum"
+              style="font-weight:700;color:#c0392b;border-top:2px solid #1a3a5c;">
+            {{ absensi_totals.alpa }}
+          </td>
+          <td class="kc-sum"
+              style="font-weight:700;color:#bf6b00;border-top:2px solid #1a3a5c;">
+            {{ absensi_totals.izin }}
+          </td>
+          <td class="kc-sum"
+              style="font-weight:700;color:#1a3a5c;border-top:2px solid #1a3a5c;">
+            {{ absensi_totals.cuti }}
+          </td>
+          <td class="kc-sum"
+              style="font-weight:700;color:#005bb5;border-top:2px solid #1a3a5c;">
+            {{ absensi_totals.dokter }}
+          </td>
+          <td class="kc-ket" style="border-top:2px solid #1a3a5c;"></td>
+        </tr>
+        {% endif %}
+
       </tbody>
     </table>
 
@@ -1096,6 +1162,7 @@ table.kal tbody tr:nth-child(even) td { background: #f7f9fc; }
   </div>
 
 </div>
+
 <!-- ══════════════════════ V. PROGRAM & PELAKSANAAN ══════════════════════ -->
 <div class="page-wrap page-break">
 
@@ -1148,7 +1215,7 @@ table.kal tbody tr:nth-child(even) td { background: #f7f9fc; }
           {% for item in entry.items %}
           <tr>
             <td class="kc-obj" style="font-weight:700;">{{ item.nama_item }}</td>
-            <td class="kc-std">{{ item.sub_area }}</td>
+            <td class="kc-std">{{ item.standar }}</td>
             <td class="kc-job">{{ item.task }}</td>
             <td class="kc-frek" style="text-align:center;">{{ item.frek }}</td>
             {% for mark in item.hari_list %}
@@ -1179,7 +1246,6 @@ table.kal tbody tr:nth-child(even) td { background: #f7f9fc; }
   </div>
 
 </div>
-
 
 <!-- ══════════════════════ VI. FOTO PROGRES ══════════════════════ -->
 <div class="page-wrap page-break">

@@ -1,0 +1,713 @@
+{% load static %}
+{% load dict_extras %}
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Laporan Bulanan - {{ perusahaan.nama_perusahaan }}</title>
+<style>
+
+/* ══════════════════════════════════════
+   WORD-SPECIFIC OVERRIDES
+   LibreOffice tidak support:
+   - position: fixed  → ganti ke static
+   - object-fit: cover → pakai width/height fixed
+   - @page margin dengan footer fixed
+══════════════════════════════════════ */
+
+@page {
+  size: A4 portrait;
+  margin: 15mm 15mm 20mm 15mm;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 9pt;
+  color: #111;
+  background: white;
+}
+
+.page-break {
+  page-break-after: always;
+}
+.avoid-break {
+  page-break-inside: avoid;
+}
+
+/* ── COVER ── */
+.cover { width: 100%; }
+.cover-body { padding: 8mm 6mm; }
+.cover-logo-row { display: table; margin-bottom: 5mm; }
+.cover-logo-box {
+  display: table-cell;
+  width: 120px;
+  height: 100px;
+  text-align: center;
+  vertical-align: middle;
+}
+.cover-logo-box img {
+  max-width: 120px;
+  max-height: 120px;
+}
+.cover-logo-label {
+  display: table-cell;
+  vertical-align: middle;
+  padding-left: 10px;
+  font-size: 8pt;
+  font-weight: 700;
+  color: #4a6080;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1.4;
+}
+.cover-eyebrow {
+  font-size: 7.5pt;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: #1a3a5c;
+  margin-bottom: 7px;
+}
+.cover-title {
+  font-size: 28pt;
+  font-weight: 700;
+  color: #1a3a5c;
+  line-height: 1.15;
+  margin-bottom: 5px;
+}
+.cover-subtitle { font-size: 11pt; color: #607080; margin-bottom: 5mm; }
+.cover-info-grid { display: table; border-collapse: collapse; border: 1px solid #c8d4e0; }
+.cover-info-row  { display: table-row; }
+.cover-info-cell {
+  display: table-cell;
+  padding: 7px 12px;
+  border: 1px solid #c8d4e0;
+  min-width: 55mm;
+}
+.cover-info-label {
+  font-size: 6.5pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #8099b0;
+  margin-bottom: 2px;
+}
+.cover-info-value { font-size: 9pt; font-weight: 700; color: #1a3a5c; }
+
+/* Foto cover — LibreOffice: pakai img langsung, tidak pakai object-fit */
+.cover-photo-wrap { margin-top: 5mm; width: 100%; }
+.cover-photo-wrap img {
+  width: 100%;
+  height: 150mm;
+  display: block;
+}
+.cover-photo-placeholder {
+  width: 100%;
+  height: 150mm;
+  background: #dde8f0;
+  text-align: center;
+  font-size: 9pt;
+  color: #8099b0;
+  font-style: italic;
+  padding-top: 70mm;
+}
+
+/* ── PAGE WRAP ── */
+.page-wrap { width: 100%; margin-bottom: 0; }
+
+/* ── HEADER ── */
+.doc-header {
+  background: #f4f7fb;
+  border-bottom: 2px solid #1a3a5c;
+  padding: 5px 14px;
+  display: table;
+  width: 100%;
+  margin-bottom: 8px;
+}
+.dh-left       { display: table-cell; vertical-align: middle; }
+.dh-right-cell { display: table-cell; vertical-align: middle; text-align: right; }
+.dh-company {
+  font-size: 8.5pt;
+  font-weight: 700;
+  color: #1a3a5c;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.dh-sub    { font-size: 7pt; color: #607080; margin-top: 1px; }
+.dh-badge  {
+  font-size: 7pt;
+  font-weight: 700;
+  color: #1a3a5c;
+  background: #dae4f0;
+  padding: 2px 9px;
+  border-radius: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+
+.page-content { padding: 0 14px 8px 14px; }
+
+/* ── FOOTER — static (bukan fixed) untuk Word ── */
+.doc-footer {
+  background: #f4f7fb;
+  border-top: 1px solid #c8d4e0;
+  padding: 4px 14px;
+  display: table;
+  width: 100%;
+  font-size: 7pt;
+  color: #8099b0;
+  margin-top: 10px;
+}
+.df-left  { display: table-cell; font-size: 7pt; color: #8099b0; }
+.df-right { display: table-cell; text-align: right; font-size: 7pt; color: #8099b0; }
+
+/* ── SECTION HEADING ── */
+.sec-head {
+  display: table;
+  width: 100%;
+  margin-bottom: 11px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid #c8d4e0;
+}
+.sec-num {
+  display: table-cell;
+  width: 22px;
+  height: 22px;
+  background: #1a3a5c;
+  color: #fff;
+  border-radius: 50%;
+  text-align: center;
+  vertical-align: middle;
+  font-size: 7.5pt;
+  font-weight: 700;
+  padding: 0 4px;
+}
+.sec-text   { display: table-cell; vertical-align: middle; padding-left: 9px; }
+.sec-title  {
+  font-size: 10pt;
+  font-weight: 700;
+  color: #1a3a5c;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.sec-desc   { font-size: 7.5pt; color: #607080; margin-top: 1px; }
+
+/* ── DAFTAR ISI ── */
+.toc-item {
+  display: table;
+  width: 100%;
+  padding: 6px 0;
+  border-bottom: 1px dotted #c8d4e0;
+  font-size: 12pt;
+}
+.toc-item:last-child { border-bottom: none; }
+.toc-item-left  { display: table-cell; }
+.toc-item-right { display: table-cell; text-align: right; }
+.toc-item-num   { font-weight: 700; color: #1a3a5c; margin-right: 8px; }
+.toc-item-pg    { font-size: 8pt; color: #8099b0; }
+
+/* ── TABEL UMUM ── */
+table.tbl { border-collapse: collapse; width: 100%; }
+table.tbl thead tr { background: #1a3a5c; }
+table.tbl thead th {
+  padding: 5px 7px;
+  font-size: 7.5pt;
+  font-weight: 700;
+  color: #fff;
+  text-align: center;
+  border: none;
+  letter-spacing: 0.2px;
+}
+table.tbl thead th.tl { text-align: left; padding-left: 8px; }
+table.tbl tbody td {
+  padding: 4px 7px;
+  font-size: 8.5pt;
+  border-bottom: 1px solid #e5eaf2;
+  vertical-align: middle;
+  color: #111;
+}
+table.tbl tbody tr:last-child td { border-bottom: none; }
+table.tbl tbody tr:nth-child(even) td { background: #f9fbfd; }
+.td-center { text-align: center; }
+.td-bold   { font-weight: 700; }
+.badge-aktif {
+  display: inline-block;
+  padding: 2px 7px;
+  background: #e6f4ec;
+  color: #1a6b3a;
+  border-radius: 20px;
+  font-size: 7pt;
+  font-weight: 700;
+}
+
+/* ── ORGANISASI ── */
+.org-wrap      { text-align: center; margin: 6px 0; }
+.org-spv-box   {
+  display: inline-block;
+  background: #1a3a5c;
+  color: #fff;
+  padding: 6px 18px;
+  font-size: 8.5pt;
+  font-weight: 700;
+  border-radius: 3px;
+  margin-bottom: 8px;
+}
+.org-spv-sub   { font-size: 7.5pt; font-weight: 400; display: block; margin-top: 2px; opacity: 0.85; }
+.org-arrow     { font-size: 14pt; color: #1a3a5c; display: block; margin: 2px 0 6px 0; }
+.org-staff-grid { text-align: center; margin-top: 4px; }
+.org-staff-item {
+  display: inline-block;
+  border: 1px solid #c8d4e0;
+  border-radius: 4px;
+  padding: 6px 8px;
+  text-align: center;
+  width: 80px;
+  background: #f4f7fb;
+  margin: 4px;
+  vertical-align: top;
+}
+.org-staff-photo {
+  width: 44px;
+  height: 52px;
+  display: block;
+  margin: 0 auto 4px;
+  border: 1px solid #c8d4e0;
+  border-radius: 3px;
+}
+.org-staff-photo-ph {
+  width: 44px;
+  height: 52px;
+  background: #dde8f0;
+  border: 1px solid #c8d4e0;
+  border-radius: 3px;
+  text-align: center;
+  line-height: 52px;
+  font-size: 16pt;
+  color: #8099b0;
+  margin: 0 auto 4px;
+}
+.org-staff-name { font-size: 6pt; font-weight: 700; color: #1a3a5c; line-height: 1.3; word-break: break-word; }
+
+/* ── KALENDER ── */
+.kal-wrap    { margin-bottom: 8px; }
+.kal-info    {
+  background: #1a3a5c;
+  color: #fff;
+  padding: 3px 8px;
+  font-size: 7pt;
+  font-weight: 700;
+  margin-bottom: 2px;
+  border-radius: 2px 2px 0 0;
+}
+.kal-info-sub { font-size: 6.5pt; font-weight: 400; opacity: 0.85; }
+.kal-lokasi {
+  font-size: 6.5pt;
+  font-weight: 700;
+  color: #1a3a5c;
+  margin-bottom: 3px;
+  padding: 2px 4px;
+  background: #f4f7fb;
+  border: 1px solid #c8d4e0;
+  border-top: none;
+}
+table.kal {
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: fixed;
+  font-size: 5pt;
+}
+table.kal thead th {
+  padding: 2px 1px;
+  background: #2c4e6e;
+  color: #fff;
+  text-align: center;
+  border: 1px solid #3a5f80;
+  font-size: 5pt;
+  font-weight: 700;
+  overflow: hidden;
+  white-space: nowrap;
+}
+table.kal tbody td {
+  padding: 1px 0.5px;
+  font-size: 4.5pt;
+  text-align: center;
+  border: 1px solid #d5dde8;
+  overflow: hidden;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+table.kal tbody tr:nth-child(even) td { background: #f7f9fc; }
+.kc-no   { width: 12px !important; }
+.kc-nama { width: 60px !important; text-align: left !important; padding-left: 2px !important; font-size: 4.8pt !important; }
+.kc-nik  { width: 40px !important; text-align: left !important; padding-left: 2px !important; }
+.kc-item { width: 65px !important; text-align: left !important; padding-left: 2px !important; font-size: 4.8pt !important; }
+.kc-std  { width: 55px !important; text-align: left !important; padding-left: 2px !important; }
+.kc-task { width: 55px !important; text-align: left !important; padding-left: 2px !important; }
+.kc-job  { width: 55px !important; text-align: left !important; padding-left: 2px !important; }
+.kc-obj  { width: 60px !important; text-align: left !important; padding-left: 2px !important; }
+.kc-frek { width: 12px !important; }
+.kc-day  { width: 8px !important; }
+.kc-sum  { width: 12px !important; font-weight: 700; }
+.kc-ket  { width: 40px !important; text-align: left !important; padding-left: 2px !important; }
+th.hari-libur { background-color: #c0392b !important; color: #fff !important; }
+td.cell-libur { background-color: #fde8e8 !important; color: #c0392b !important; }
+.sP  { font-weight: 700; color: #1a6b3a; }
+.sL  { font-weight: 700; color: #1a3a5c; }
+.sA  { font-weight: 700; color: #c0392b; }
+.sI  { font-weight: 700; color: #bf6b00; }
+.sDC { font-weight: 700; color: #005bb5; font-size: 4pt; }
+.sLB { color: #9aa5b0; }
+.sMark { font-weight: 700; color: #1a3a5c; }
+.kal-ket { margin-top: 4px; font-size: 6.5pt; color: #607080; }
+.kal-ket-libur {
+  display: inline-block;
+  background: #1a3a5c;
+  color: #fff;
+  padding: 1px 7px;
+  border-radius: 2px;
+  font-size: 6pt;
+}
+
+/* ── FOTO ── */
+.foto-section-title {
+  font-size: 8.5pt;
+  font-weight: 700;
+  color: #1a3a5c;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid #1a3a5c;
+  padding-bottom: 3px;
+  margin: 10px 0 6px 0;
+}
+.foto-item-grid   { width: 100%; border-collapse: collapse; margin-bottom: 12px; table-layout: fixed; }
+.foto-item-grid td { width: 50%; padding: 5px; vertical-align: top; border: none; }
+.foto-item-title  { font-size: 7.5pt; font-weight: 700; color: #1a3a5c; text-align: center; margin-bottom: 4px; }
+.foto-pair-label  { font-size: 6.5pt; font-weight: 700; color: #607080; text-align: center; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+.foto-img         { width: 100%; height: 100px; display: block; border: 1px solid #c8d4e0; border-radius: 3px 3px 0 0; }
+.foto-cap         { font-size: 6.5pt; text-align: center; padding: 3px 5px; background: #f4f7fb; color: #607080; border: 1px solid #c8d4e0; border-top: none; border-radius: 0 0 3px 3px; line-height: 1.3; }
+.foto-empty       { width: 100%; height: 100px; background: #edf1f5; border: 1px dashed #b0bed0; border-radius: 3px; text-align: center; line-height: 100px; font-size: 7.5pt; color: #8099b0; font-style: italic; }
+
+/* ── PENUTUP & TTD ── */
+.penutup-text  { font-size: 9.5pt; line-height: 2; text-align: justify; color: #111; margin-bottom: 22px; }
+.ttd-location  { font-size: 9pt; text-align: right; color: #607080; margin-bottom: 6px; margin-top: 40px; }
+.ttd-table     { width: 100%; border-collapse: collapse; margin-top: 10px; }
+.ttd-table td  { padding: 0 12px; text-align: center; border-right: 1px solid #c8d4e0; width: 33.33%; }
+.ttd-table td:last-child { border-right: none; }
+.ttd-label-text { font-size: 8.5pt; color: #607080; margin-bottom: 44px; }
+.ttd-line  { border-top: 1px solid #333; padding-top: 4px; font-size: 8.5pt; font-weight: 700; color: #111; }
+.ttd-role  { font-size: 7.5pt; color: #607080; margin-top: 2px; }
+
+</style>
+</head>
+<body>
+
+
+
+<!-- COVER -->
+<div class="page-break">
+  <div style="text-align:center; padding: 40px 0;">
+    <h1 style="font-size:24pt; margin-bottom:8px;">LAPORAN BULANAN</h1>
+    <h2 style="font-size:16pt; margin-bottom:4px;">{{ perusahaan.nama_perusahaan }}</h2>
+    <p style="font-size:12pt; color:#607080;">{{ jenis_jasa.nama_jasa }}</p>
+    <p style="font-size:12pt;">Periode: {{ nama_bulan }} {{ tahun }}</p>
+    <p style="font-size:10pt; color:#607080; margin-top:16px;">{{ perusahaan.alamat }}</p>
+  </div>
+</div>
+
+<!-- I. DATA KARYAWAN -->
+<div class="page-break">
+  <div class="section-title">I. DATA KARYAWAN</div>
+  <p style="font-size:9pt; color:#607080; margin-bottom:8px;">
+    Total {{ staff_list|length }} karyawan aktif — Periode {{ nama_bulan }} {{ tahun }}
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:5%">No</th>
+        <th style="width:35%; text-align:left;">Nama Lengkap</th>
+        <th style="width:20%">NIK</th>
+        <th style="width:25%; text-align:left;">Sub Area</th>
+        <th style="width:15%">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for rel in staff_list %}
+      <tr>
+        <td class="center">{{ forloop.counter }}</td>
+        <td class="bold">{{ rel.staff.nama_lengkap|default:rel.staff.username|upper }}</td>
+        <td class="center">{{ rel.staff.nik }}</td>
+        <td>{{ staff_subarea_map|get_item:rel.staff.pk|default:"-" }}</td>
+        <td class="center">Aktif</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="center">Tidak ada data karyawan.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- II. STRUKTUR ORGANISASI -->
+<div class="page-break">
+  <div class="section-title">II. STRUKTUR ORGANISASI</div>
+  <div class="info-box">
+    {% for laporan in laporan_list %}{% if forloop.first %}
+    <p><strong>Supervisor:</strong> {{ laporan.supervisor.nama_lengkap|default:laporan.supervisor.username }}</p>
+    <p><strong>Jenis Jasa:</strong> {{ laporan.jenis_jasa.nama_jasa }}</p>
+    <p><strong>Perusahaan:</strong> {{ perusahaan.nama_perusahaan }}</p>
+    {% endif %}{% endfor %}
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:5%">No</th>
+        <th style="text-align:left;">Nama Staff</th>
+        <th style="width:20%">NIK</th>
+        <th style="text-align:left;">Sub Area</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for rel in staff_list %}
+      <tr>
+        <td class="center">{{ forloop.counter }}</td>
+        <td>{{ rel.staff.nama_lengkap|default:rel.staff.username }}</td>
+        <td class="center">{{ rel.staff.nik|default:"-" }}</td>
+        <td>{{ staff_subarea_map|get_item:rel.staff.pk|default:"-" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="center">Tidak ada data staff.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- III. JADWAL -->
+<div class="page-break">
+  <div class="section-title">III. JADWAL DAN PLOTING KERJA</div>
+  {% for sub_area_name, items in jadwal_kalender.items %}
+  <div class="info-box" style="margin-bottom:4px;">
+    <strong>Lokasi: {{ sub_area_name }}</strong> &nbsp;|&nbsp;
+    Staff: {% for item in items %}{% if forloop.first %}{{ item.staff_unik }}{% endif %}{% endfor %}
+  </div>
+  <table style="font-size:7pt;">
+    <thead>
+      <tr>
+        <th style="width:4%">No</th>
+        <th style="width:20%; text-align:left;">Item Job</th>
+        <th style="width:18%; text-align:left;">Standard</th>
+        <th style="width:15%; text-align:left;">Task</th>
+        {% for day in days_range %}<th style="width:8px; font-size:6pt;">{{ day }}</th>{% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td class="center">{{ forloop.counter }}</td>
+        <td>{{ item.nama_item }}</td>
+        <td>{{ item.standar }}</td>
+        <td>{{ item.task }}</td>
+        {% for day in days_range %}
+        <td class="center">{% if day in item.tanggal_aktif %}A{% endif %}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <br>
+  {% endfor %}
+</div>
+
+<!-- IV. ABSENSI -->
+<div class="page-break">
+  <div class="section-title">IV. REKAP ABSENSI KARYAWAN</div>
+
+  <!-- Summary -->
+  <table style="width:auto; margin-bottom:12px;">
+    <thead>
+      <tr>
+        <th style="background:#1a6b3a;">Hadir</th>
+        <th style="background:#c0392b;">Alpa</th>
+        <th style="background:#bf6b00;">Izin</th>
+        <th style="background:#1a3a5c;">Cuti</th>
+        <th style="background:#005bb5;">Srt. Dokter</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="center bold" style="color:#1a6b3a; font-size:14pt;">{{ absensi_totals.hadir }}</td>
+        <td class="center bold" style="color:#c0392b; font-size:14pt;">{{ absensi_totals.alpa }}</td>
+        <td class="center bold" style="color:#bf6b00; font-size:14pt;">{{ absensi_totals.izin }}</td>
+        <td class="center bold" style="color:#1a3a5c; font-size:14pt;">{{ absensi_totals.cuti }}</td>
+        <td class="center bold" style="color:#005bb5; font-size:14pt;">{{ absensi_totals.dokter }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <table style="font-size:7pt;">
+    <thead>
+      <tr>
+        <th style="width:4%">No</th>
+        <th style="width:18%; text-align:left;">Nama</th>
+        <th style="width:12%">NIK</th>
+        {% for day in days_range %}<th style="font-size:6pt;">{{ day }}</th>{% endfor %}
+        <th>E</th><th>A</th><th>I</th><th>L</th><th>DC</th>
+        <th style="text-align:left;">Ket</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for staff_id, data in absensi_kalender.items %}
+      <tr>
+        <td class="center">{{ forloop.counter }}</td>
+        <td class="bold">{{ data.nama|upper }}</td>
+        <td class="center">{{ data.nik }}</td>
+        {% for h in data.hari_list %}
+        <td class="center">{{ h.status }}</td>
+        {% endfor %}
+        <td class="center bold" style="color:#1a6b3a;">{{ data.jumlah_hadir|default:"0" }}</td>
+        <td class="center bold" style="color:#c0392b;">{{ data.jumlah_alpa|default:"0" }}</td>
+        <td class="center bold" style="color:#bf6b00;">{{ data.jumlah_izin|default:"0" }}</td>
+        <td class="center bold" style="color:#1a3a5c;">{{ data.jumlah_cuti|default:"0" }}</td>
+        <td class="center bold" style="color:#005bb5;">{{ data.jumlah_dokter|default:"0" }}</td>
+        <td></td>
+      </tr>
+      {% endfor %}
+      {% if absensi_kalender %}
+      <tr style="background:#f0f4fa;">
+        <td colspan="3" style="text-align:right; font-weight:bold;">TOTAL</td>
+        {% for day in days_range %}<td></td>{% endfor %}
+        <td class="center bold" style="color:#1a6b3a;">{{ absensi_totals.hadir }}</td>
+        <td class="center bold" style="color:#c0392b;">{{ absensi_totals.alpa }}</td>
+        <td class="center bold" style="color:#bf6b00;">{{ absensi_totals.izin }}</td>
+        <td class="center bold" style="color:#1a3a5c;">{{ absensi_totals.cuti }}</td>
+        <td class="center bold" style="color:#005bb5;">{{ absensi_totals.dokter }}</td>
+        <td></td>
+      </tr>
+      {% endif %}
+    </tbody>
+  </table>
+  <p style="font-size:8pt; color:#607080; margin-top:6px;">
+    <strong>Keterangan:</strong> P=Hadir &nbsp; L=Cuti &nbsp; I=Izin &nbsp; A=Alpa &nbsp; DC=Surat Dokter &nbsp; LB=Libur
+  </p>
+</div>
+
+<!-- V. PROGRAM & PELAKSANAAN -->
+<div class="page-break">
+  <div class="section-title">V. PROGRAM DAN PELAKSANAAN PEKERJAAN</div>
+  {% for entry in laporan_dengan_jadwal %}
+  <div class="info-box" style="margin-bottom:4px;">
+    <strong>{{ entry.area_nama }}</strong> &nbsp;|&nbsp; Supervisor: {{ entry.supervisor }} &nbsp;|&nbsp; {{ nama_bulan }} {{ tahun }}
+  </div>
+  <table style="font-size:7pt;">
+    <thead>
+      <tr>
+        <th style="width:20%; text-align:left;">Object</th>
+        <th style="width:18%; text-align:left;">Standar</th>
+        <th style="width:15%; text-align:left;">Job / Pekerjaan</th>
+        <th style="width:5%">Frek</th>
+        {% for day in days_range %}<th style="font-size:6pt;">{{ day }}</th>{% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in entry.items %}
+      <tr>
+        <td class="bold">{{ item.nama_item }}</td>
+        <td>{{ item.standar }}</td>
+        <td>{{ item.task }}</td>
+        <td class="center">{{ item.frek }}</td>
+        {% for mark in item.hari_list %}
+        <td class="center">{{ mark }}</td>
+        {% endfor %}
+      </tr>
+      {% empty %}
+      <tr><td colspan="{{ days_in_month|add:4 }}" class="center">Tidak ada item kegiatan.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <br>
+  {% endfor %}
+</div>
+
+<!-- VI. FOTO PROGRES -->
+<div class="page-break">
+  <div class="section-title">VI. FOTO PROGRES</div>
+  {% regroup item_list by sub_area.nama_sub_area as foto_by_subarea %}
+  {% for area_group in foto_by_subarea %}
+  <p class="bold" style="color:#1a3a5c; border-bottom:1px solid #ccc; padding-bottom:3px; margin:10px 0 6px 0;">
+    {{ area_group.grouper|default:"Tanpa Sub Area" }}
+  </p>
+  {% for item in area_group.list %}
+  {% if item.foto_on_progress or item.foto_after %}
+  <p class="bold">{{ item.nama_item }}{% if item.tanggal %} — {{ item.tanggal|date:"d M Y" }}{% endif %}</p>
+  <table style="width:100%; border:none;">
+    <tr>
+      <td style="width:50%; border:none; text-align:center; padding:4px;">
+        <p style="font-size:8pt; color:#607080;">On Progress</p>
+       {% if item.foto_on_progress %}
+<img src="file:///{{ item.foto_on_progress.path }}" style="max-width:220px; max-height:150px; border:1px solid #ccc;">
+{% else %}
+<p style="color:#8099b0; font-style:italic;">N/A</p>
+{% endif %}
+      </td>
+<td style="width:50%; border:none; text-align:center; padding:4px;">
+        <p style="font-size:8pt; color:#607080;">After</p>
+        {% if item.foto_after %}
+        <img src="file:///{{ item.foto_after.path }}" style="max-width:220px; max-height:150px; border:1px solid #ccc;">
+        {% else %}
+        <p style="color:#8099b0; font-style:italic;">N/A</p>
+        {% endif %}
+      </td>
+    </tr>
+  </table>
+  {% endif %}
+  {% endfor %}
+  {% empty %}
+  <p style="text-align:center; color:#8099b0;">Tidak ada foto dokumentasi bulan ini.</p>
+  {% endfor %}
+</div>
+
+<!-- VII. PENUTUP -->
+<div>
+  <div class="section-title">VII. PENUTUP</div>
+  <p style="line-height:2; text-align:justify; margin-bottom:20px;">
+    Demikian Laporan Bulanan periode bulan <strong>{{ nama_bulan }} {{ tahun }}</strong>
+    ini dibuat sebagai bentuk pertanggungjawaban pelaksanaan jasa
+    <strong>{{ jenis_jasa.nama_jasa }}</strong> di lingkungan
+    <strong>{{ perusahaan.nama_perusahaan }}</strong>.
+    Semua kegiatan telah dilaksanakan sesuai dengan jadwal dan standar yang telah ditetapkan.
+    Kami berkomitmen untuk terus meningkatkan kualitas layanan demi kepuasan seluruh pengguna fasilitas.
+  </p>
+
+  <p style="text-align:right; color:#607080; margin-bottom:20px;">
+    {{ perusahaan.alamat|default:"Karawang" }}, {{ nama_bulan }} {{ tahun }}
+  </p>
+
+  <table style="width:100%; border:none; margin-top:10px;">
+    <tr>
+      <td style="width:33%; text-align:center; border:none; padding:0 10px;">
+        <p>Dibuat oleh,</p>
+        <br><br><br>
+        <p class="bold">
+          ( {% for laporan in laporan_list %}{% if forloop.first %}{{ laporan.supervisor.nama_lengkap|default:laporan.supervisor.username }}{% endif %}{% endfor %} )
+        </p>
+        <p style="font-size:8pt; color:#607080;">SPV {{ jenis_jasa.nama_jasa }}</p>
+      </td>
+      <td style="width:33%; text-align:center; border:none; padding:0 10px;">
+        <p>Diketahui oleh,</p>
+        <br><br><br>
+        <p class="bold">( &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; )</p>
+        <p style="font-size:8pt; color:#607080;">Kepala Supervisor</p>
+      </td>
+      <td style="width:33%; text-align:center; border:none; padding:0 10px;">
+        <p>Disetujui oleh,</p>
+        <br><br><br>
+        <p class="bold">( &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; )</p>
+        <p style="font-size:8pt; color:#607080;">{{ perusahaan.nama_perusahaan }}</p>
+      </td>
+    </tr>
+  </table>
+</div>
+
+</body>
+</html>

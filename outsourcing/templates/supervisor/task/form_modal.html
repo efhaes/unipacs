@@ -1,28 +1,28 @@
-<form id="taskForm" data-task-id="{% if task %}{{ task.pk }}{% endif %}">
-  {% csrf_token %}
+  <form id="taskForm" data-task-id="{% if task %}{{ task.pk }}{% endif %}">
+    {% csrf_token %}
 
-  <div class="mb-3">
-    <label class="form-label fw-semibold">{{ form.jenis_jasa.label }}</label>
-    {{ form.jenis_jasa }}
-  </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold">{{ form.jenis_jasa.label }}</label>
+      {{ form.jenis_jasa }}
+    </div>
 
-  <div class="mb-3">
-    <label class="form-label fw-semibold">{{ form.nama_task.label }}</label>
-    {{ form.nama_task }}
-  </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold">{{ form.nama_task.label }}</label>
+      {{ form.nama_task }}
+    </div>
 
-  <div class="mb-3">
-    <label class="form-label fw-semibold">{{ form.deskripsi.label }}</label>
-    {{ form.deskripsi }}
-  </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold">{{ form.deskripsi.label }}</label>
+      {{ form.deskripsi }}
+    </div>
 
-  <div class="mb-3 form-check">
-    {{ form.is_active }}
-    <label class="form-check-label" for="{{ form.is_active.id }}">{{ form.is_active.label }}</label>
-  </div>
+    <div class="mb-3 form-check">
+      {{ form.is_active }}
+      <label class="form-check-label" for="{{ form.is_active.id }}">{{ form.is_active.label }}</label>
+    </div>
 
-  <div class="text-end pt-3 border-top">
-    <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Batal</button>
-    <button type="submit" class="btn btn-primary px-4">Simpan</button>
-  </div>
-</form>
+    <div class="text-end pt-3 border-top">
+      <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Batal</button>
+      <button type="submit" class="btn btn-primary px-4">Simpan</button>
+    </div>
+  </form>

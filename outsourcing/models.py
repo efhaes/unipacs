@@ -265,6 +265,11 @@ class Task(models.Model):
         related_name='tasks',
     )
     nama_task   = models.CharField(max_length=200)
+    standar = models.CharField(
+            max_length=200,
+            blank=True,
+            help_text='Standar kualitas untuk task ini.',
+        )
     deskripsi   = models.TextField(blank=True)
     is_active    = models.BooleanField(default=True)
     dibuat_pada = models.DateTimeField(auto_now_add=True)

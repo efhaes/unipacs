@@ -35,9 +35,7 @@ def _qr_to_base64(url: str) -> str:
 
 
 def _get_supervisor(request):
-    if request.user.role == 'supervisor':
-        return request.user
-    return request.supervisor_context
+    return getattr(request, 'supervisor_context', request.user)
 
 
 def _staff_ids(supervisor):
@@ -538,29 +536,6 @@ def _get_form_with_supervisor(request, form_class, *args, **kwargs):
     form = form_class(*args, **kwargs)
     form._supervisor = request.user
     return form
-
-
-def supervisor_or_kepala_required(view_func):
-    """
-    Decorator: pastikan user sudah login dan punya role
-    supervisor atau kepala_supervisor.
-    """
-    from functools import wraps
-    from outsourcing.models import RoleChoices
-
-    @wraps(view_func)
-    def wrapper(request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            from django.contrib.auth.views import redirect_to_login
-            return redirect_to_login(request.get_full_path())
-
-        allowed_roles = {RoleChoices.SUPERVISOR, RoleChoices.KEPALA_SUPERVISOR}
-        if request.user.role not in allowed_roles:
-            from django.core.exceptions import PermissionDenied
-            raise PermissionDenied
-
-        return view_func(request, *args, **kwargs)
-    return wrapper
 
 
 @supervisor_or_kepala_required

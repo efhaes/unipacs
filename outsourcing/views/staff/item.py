@@ -18,7 +18,7 @@ from outsourcing.forms.staff_forms import (
     ItemKegiatanInsidentalForm,
     FotoTambahanForm,
 )
-from outsourcing.models import ItemKegiatan, FotoItemKegiatan
+from outsourcing.models import ItemKegiatan, FotoItemKegiatan, StatusLaporan
 
 
 # ---------------------------------------------------------------------------
@@ -102,6 +102,24 @@ def _suggest_jam_mulai(staff_user, tanggal: date, buffer_minutes: int = 2):
     return suggested_dt.time()
 
 
+def _item_locked_message(item: ItemKegiatan) -> str | None:
+    """
+    Return pesan jika item terkunci (tidak bisa diedit), None jika masih bisa.
+    Item terkunci jika:
+    - laporan induk sudah SELESAI (final), atau
+    - status item sendiri di LOCKED_STATUSES.
+    """
+    if item.laporan.status == StatusLaporan.SELESAI:
+        return "Laporan untuk pekerjaan ini sudah diselesaikan dan tidak dapat diedit lagi."
+
+    if item.status in LOCKED_STATUSES:
+        if item.status == Status.MENUNGGU_APPROVAL:
+            return "Pekerjaan ini sedang menunggu approval customer dan tidak dapat diedit."
+        return "Pekerjaan ini sudah selesai dan tidak dapat diedit."
+
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Guard decorator
 # ---------------------------------------------------------------------------
@@ -109,28 +127,19 @@ def _suggest_jam_mulai(staff_user, tanggal: date, buffer_minutes: int = 2):
 def item_not_done(view_fn: Callable) -> Callable:
     @wraps(view_fn)
     def _wrapper(request: HttpRequest, pk: int, *args, **kwargs):
-        item = get_object_or_404(ItemKegiatan, pk=pk, staff=request.user)
-        if item.status in LOCKED_STATUSES:
-            label = (
-                "sedang menunggu approval customer"
-                if item.status == Status.MENUNGGU_APPROVAL
-                else "sudah selesai"
-            )
-            messages.info(request, f"Pekerjaan ini {label} dan tidak dapat diedit.")
+        item = get_object_or_404(
+            ItemKegiatan.objects.select_related("laporan"),
+            pk=pk,
+            staff=request.user,
+        )
+        locked_msg = _item_locked_message(item)
+        if locked_msg:
+            messages.info(request, locked_msg)
             return redirect("staff_item_list")
         return view_fn(request, *args, item=item, **kwargs)
     return _wrapper
 
 
-# ---------------------------------------------------------------------------
-# Save-type handlers
-#
-# Semua handler sekarang punya signature yang sama:
-#   (request, item) -> HttpResponse
-#
-# Tidak ada yang return tuple. Kalau perlu re-render (misalnya form error),
-# handler memanggil _render_update_page() yang juga dipakai oleh GET.
-# ---------------------------------------------------------------------------
 
 def _render_update_page(request: HttpRequest, item: ItemKegiatan, form=None) -> HttpResponse:
     """
@@ -418,10 +427,15 @@ def item_update_jam(request: HttpRequest):
     if not jam_mulai or not jam_selesai:
         return JsonResponse({"success": False, "error": "Jam mulai dan jam selesai wajib diisi"})
 
-    item = get_object_or_404(ItemKegiatan, pk=item_pk, staff=request.user)
+    item = get_object_or_404(
+        ItemKegiatan.objects.select_related("laporan"),
+        pk=item_pk,
+        staff=request.user,
+    )
 
-    if item.status in LOCKED_STATUSES:
-        return JsonResponse({"success": False, "error": "Pekerjaan sudah terkunci"})
+    locked_msg = _item_locked_message(item)
+    if locked_msg:
+        return JsonResponse({"success": False, "error": locked_msg})
 
     try:
         parsed_mulai   = datetime.strptime(jam_mulai,   "%H:%M").time()
@@ -484,15 +498,15 @@ def item_create_insidental(request: HttpRequest):
 
 @staff_required
 def item_upload_foto_tambahan(request: HttpRequest, pk: int):
-    item = get_object_or_404(ItemKegiatan, pk=pk, staff=request.user)
+    item = get_object_or_404(
+        ItemKegiatan.objects.select_related("laporan"),
+        pk=pk,
+        staff=request.user,
+    )
 
-    if item.status in LOCKED_STATUSES:
-        label = (
-            "sedang menunggu approval customer"
-            if item.status == Status.MENUNGGU_APPROVAL
-            else "sudah selesai"
-        )
-        messages.info(request, f"Pekerjaan {label}, foto tidak dapat ditambahkan.")
+    locked_msg = _item_locked_message(item)
+    if locked_msg:
+        messages.info(request, f"{locked_msg} Foto tidak dapat ditambahkan.")
         return redirect("staff_item_update", pk=pk)
 
     jumlah_foto = item.foto_tambahan.count()
@@ -537,26 +551,20 @@ def item_upload_foto_tambahan(request: HttpRequest, pk: int):
 @staff_required
 def item_hapus_foto_tambahan(request: HttpRequest, foto_pk: int):
     foto = get_object_or_404(
-        FotoItemKegiatan.objects.select_related("item"),
+        FotoItemKegiatan.objects.select_related("item", "item__laporan"),
         pk=foto_pk,
         item__staff=request.user,
     )
-    item_pk     = foto.item_id
-    item_status = foto.item.status
+    item_pk = foto.item_id
 
-    if item_status in LOCKED_STATUSES:
-        label = (
-            "sedang menunggu approval customer"
-            if item_status == Status.MENUNGGU_APPROVAL
-            else "sudah selesai"
-        )
-        messages.info(request, f"Pekerjaan {label}, foto tidak dapat dihapus.")
+    locked_msg = _item_locked_message(foto.item)
+    if locked_msg:
+        messages.info(request, f"{locked_msg} Foto tidak dapat dihapus.")
         return redirect("staff_item_update", pk=item_pk)
 
     foto.delete()
     messages.success(request, "Foto tambahan dihapus.")
     return redirect("staff_item_update", pk=item_pk)
-
 
 # ---------------------------------------------------------------------------
 # Views — Foto Tambahan (AJAX/JSON — untuk modal inline)
@@ -568,15 +576,15 @@ def item_upload_foto_tambahan_ajax(request: HttpRequest, pk: int):
     if request.method != "POST":
         return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
 
-    item = get_object_or_404(ItemKegiatan, pk=pk, staff=request.user)
+    item = get_object_or_404(
+        ItemKegiatan.objects.select_related("laporan"),
+        pk=pk,
+        staff=request.user,
+    )
 
-    if item.status in LOCKED_STATUSES:
-        label = (
-            "sedang menunggu approval customer"
-            if item.status == Status.MENUNGGU_APPROVAL
-            else "sudah selesai"
-        )
-        return JsonResponse({"success": False, "error": f"Pekerjaan {label}."})
+    locked_msg = _item_locked_message(item)
+    if locked_msg:
+        return JsonResponse({"success": False, "error": locked_msg})
 
     jumlah_foto = item.foto_tambahan.count()
     if jumlah_foto >= FotoItemKegiatan.MAKS_FOTO:
@@ -626,19 +634,14 @@ def item_hapus_foto_tambahan_ajax(request: HttpRequest, foto_pk: int):
         return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
 
     foto = get_object_or_404(
-        FotoItemKegiatan.objects.select_related("item"),
+        FotoItemKegiatan.objects.select_related("item", "item__laporan"),
         pk=foto_pk,
         item__staff=request.user,
     )
-    item_status = foto.item.status
 
-    if item_status in LOCKED_STATUSES:
-        label = (
-            "sedang menunggu approval customer"
-            if item_status == Status.MENUNGGU_APPROVAL
-            else "sudah selesai"
-        )
-        return JsonResponse({"success": False, "error": f"Pekerjaan {label}."})
+    locked_msg = _item_locked_message(foto.item)
+    if locked_msg:
+        return JsonResponse({"success": False, "error": locked_msg})
 
     item = foto.item
     foto.delete()

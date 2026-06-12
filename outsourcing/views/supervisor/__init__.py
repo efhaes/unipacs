@@ -1,7 +1,7 @@
 from .dashboard import dashboard_view
 from .laporan import (
     laporan_list, laporan_create, laporan_detail,
-    laporan_edit, laporan_delete, laporan_kirim,laporan_selesai,laporan_toggle_aktif,
+    laporan_edit, laporan_delete ,laporan_selesai,laporan_toggle_aktif,
 )
 from .item import item_create, item_edit, item_delete
 from .staff import staff_list, staff_create, staff_edit, staff_toggle_aktif, staff_delete

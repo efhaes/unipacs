@@ -12,6 +12,7 @@ from django.utils.timezone import localtime
 from django.views.decorators.http import require_POST
 from django.db.models import Q
 
+from outsourcing.constants import KOORDINAT_DECIMAL_PLACES, RADIUS_DEFAULT, RADIUS_MAX, RADIUS_MIN
 from outsourcing.decorators import supervisor_or_kepala_required
 from outsourcing.models import (
     QRAbsensi, QRTypeChoices,
@@ -606,6 +607,10 @@ def lokasi_tambah(request):
         'form'      : form,
         'mode'      : 'tambah',
         'supervisor': supervisor,
+         'koordinat_decimal_places': KOORDINAT_DECIMAL_PLACES,
+        'radius_min': RADIUS_MIN,
+        'radius_max': RADIUS_MAX,
+        'radius_default': RADIUS_DEFAULT,
     })
 
 
@@ -643,6 +648,10 @@ def lokasi_edit(request, pk):
         'lokasi'    : lokasi,
         'mode'      : 'edit',
         'supervisor': supervisor,
+        'koordinat_decimal_places': KOORDINAT_DECIMAL_PLACES,
+        'radius_min': RADIUS_MIN,
+        'radius_max': RADIUS_MAX,
+        'radius_default': RADIUS_DEFAULT,
     })
 
 

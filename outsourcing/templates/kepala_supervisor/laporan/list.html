@@ -93,8 +93,6 @@
                             <span class="status-badge status-draft">Draft</span>
                         {% elif l.status == 'selesai' %}
                             <span class="status-badge status-selesai">Selesai</span>
-                        {% elif l.status == 'dikirim_customer' %}
-                            <span class="status-badge status-dikirim">Dikirim</span>
                         {% endif %}
                     </td>
                     <td>
@@ -128,8 +126,7 @@
                 <span class="status-badge status-draft">Draft</span>
             {% elif l.status == 'selesai' %}
                 <span class="status-badge status-selesai">Selesai</span>
-            {% elif l.status == 'dikirim_customer' %}
-                <span class="status-badge status-dikirim">Dikirim</span>
+
             {% endif %}
         </div>
         <div class="laporan-card-meta">

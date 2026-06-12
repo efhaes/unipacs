@@ -55,7 +55,10 @@
             height: 100vh;
             position: relative;
         }
-
+.page-content {
+    position: relative;
+    z-index: auto !important;
+}
         .sidebar {
             width: var(--sidebar-w);
             flex-shrink: 0;

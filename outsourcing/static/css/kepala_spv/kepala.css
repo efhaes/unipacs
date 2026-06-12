@@ -10,7 +10,10 @@
 /* ════════════════════════════════════════════════════════════
    SHARED — dipakai semua halaman
    ════════════════════════════════════════════════════════════ */
-
+.page-content {
+    position: relative;
+    z-index: auto !important;
+}
 /* ── Page Header ───────────────────────────────────────────── */
 .page-header,
 .d-flex.justify-content-between.align-items-center.mb-3 {
@@ -833,4 +836,68 @@ label.form-label.small.text-muted {
   .spv-acc-mobile { display: flex; }
   .spv-acc-header { padding: 12px 14px; }
   .spv-acc-name { font-size: 13px; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   FORM EDIT SUPERVISOR — Mobile Fix
+   ════════════════════════════════════════════════════════════ */
+
+@media (max-width: 640px) {
+
+    /* Form container full width di mobile */
+    .form-container {
+        max-width: 100%;
+        padding: 1rem 0;
+    }
+
+    /* Form card padding lebih kecil */
+    .form-card {
+        padding: 1.25rem 1rem;
+    }
+
+    /* Grid 2 kolom jadi 1 kolom */
+    .form-card [style*="grid-template-columns:1fr 1fr"],
+    .form-card div[style*="grid-template-columns"] {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 0 !important;
+    }
+
+    /* Avatar supervisor lebih compact */
+    .form-card > div:first-child {
+        margin-bottom: 1.1rem !important;
+        padding-bottom: 1rem !important;
+    }
+
+    /* Tombol aksi full width di mobile */
+    .form-actions {
+        flex-direction: column;
+        gap: 8px;
+    }
+    .form-actions .btn {
+        width: 100%;
+        justify-content: center;
+        padding: 10px !important;
+    }
+
+    /* Input file lebih rapi */
+    input[type="file"].form-control {
+        font-size: 12px !important;
+        padding: 6px 8px !important;
+    }
+
+    /* Password toggle wrap */
+    .pw-wrap .form-control {
+        font-size: 13px !important;
+    }
+
+    /* Back link */
+    .back-link {
+        font-size: 12px;
+    }
+
+    /* Form header */
+    .form-header h5 {
+        font-size: 15px !important;
+    }
 }

@@ -24,7 +24,7 @@ from outsourcing.views.staff.item import item_hapus_foto_tambahan_ajax
 from outsourcing.views.supervisor import (
     dashboard_view as supervisor_dashboard,
     laporan_list, laporan_create, laporan_detail, laporan_edit, laporan_delete,
-    laporan_kirim, laporan_selesai, laporan_toggle_aktif,
+    laporan_selesai, laporan_toggle_aktif,
     item_create, item_edit, item_delete,
     staff_list as spv_staff_list,   # ← ganti alias ini
     staff_create, staff_edit, staff_toggle_aktif, staff_delete,
@@ -117,7 +117,6 @@ urlpatterns = [
     path('supervisor/laporan/<int:pk>/edit/', laporan_edit, name='supervisor_laporan_edit'),
     path('supervisor/laporan/<int:pk>/hapus/', laporan_delete, name='supervisor_laporan_delete'),
     path('supervisor/laporan/<int:pk>/selesai/', laporan_selesai, name='supervisor_laporan_selesai'),
-    path('supervisor/laporan/<int:pk>/kirim/', laporan_kirim, name='supervisor_laporan_kirim'),
     path('supervisor/laporan/<int:laporan_pk>/item/tambah/', item_create, name='supervisor_item_create'),
     path('supervisor/laporan/<int:pk>/toggle-aktif/', laporan_toggle_aktif, name='supervisor_laporan_toggle_aktif'),
     path('supervisor/item/<int:pk>/edit/', item_edit, name='supervisor_item_edit'),

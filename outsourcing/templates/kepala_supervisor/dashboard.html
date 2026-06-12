@@ -671,17 +671,13 @@
         <div class="cb-info">
             <div class="cb-label">Progress Laporan Bulan Ini</div>
             <div class="cb-sub">
-                {{ stats.laporan_dikirim|default:0 }} dikirim ·
                 {{ stats.laporan_selesai|default:0 }} selesai ·
                 {{ stats.laporan_draft|default:0 }} draft ·
                 <span style="color:var(--clr-danger);">{{ stats.belum_laporan|default:0 }} belum dibuat</span>
             </div>
         </div>
         <div class="cb-stats">
-            <div class="cb-stat">
-                <div class="cb-stat-val" style="color:#a5b4fc;">{{ stats.laporan_dikirim|default:0 }}</div>
-                <div class="cb-stat-label">Dikirim</div>
-            </div>
+
             <div class="cb-stat">
                 <div class="cb-stat-val" style="color:var(--clr-success);">{{ stats.laporan_selesai|default:0 }}</div>
                 <div class="cb-stat-label">Selesai</div>
@@ -926,8 +922,7 @@
                 {% for l in laporan_terbaru %}
                 <div class="lap-row">
                     <div class="lap-dot" style="background:
-                        {% if l.status == 'dikirim_customer' %}var(--clr-accent)
-                        {% elif l.status == 'selesai' %}var(--clr-success)
+                        {% if l.status == 'selesai' %}var(--clr-success)
                         {% else %}var(--clr-text-muted){% endif %};"></div>
                     <div class="lap-info">
                         <a href="{% url 'kepala_laporan_detail' l.pk %}" class="lap-name">
@@ -941,8 +936,6 @@
                             <span class="ks-badge kb-draft">Draft</span>
                         {% elif l.status == 'selesai' %}
                             <span class="ks-badge kb-selesai">Selesai</span>
-                        {% elif l.status == 'dikirim_customer' %}
-                            <span class="ks-badge kb-dikirim">Dikirim</span>
                         {% endif %}
                     </div>
                 </div>

@@ -1,5 +1,11 @@
 from django import forms
 from outsourcing.models import QRAbsensi, Absensi,IzinStaff, TipeIzinChoices,LokasiAbsensi
+from outsourcing.utils.koordinat import KoordinatHelper
+from outsourcing.constants import (
+    LATITUDE_MIN, LATITUDE_MAX,
+    LONGITUDE_MIN, LONGITUDE_MAX,
+    RADIUS_MIN, RADIUS_MAX,
+)
 
 
 class QRAbsensiForm(forms.ModelForm):
@@ -74,23 +80,15 @@ class IzinStaffForm(forms.ModelForm):
         return cleaned
 
 
-from django import forms
-from outsourcing.models import LokasiAbsensi
-
 
 class LokasiAbsensiForm(forms.ModelForm):
-    """
-    Form untuk tambah/edit LokasiAbsensi dengan validasi koordinat dan radius.
-    Template menangani rendering, jadi widgets di-minimize.
-    """
+    """Form dengan validasi koordinat yang jelas & centralized."""
+    
     class Meta:
         model  = LokasiAbsensi
         fields = ['nama', 'latitude', 'longitude', 'radius_meter', 'is_active']
         widgets = {
-            # Minimal widgets — template override sebagian besar rendering
-            'is_active': forms.CheckboxInput(attrs={
-                'class': 'form-check-input',
-            }),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
         labels = {
             'nama'        : 'Nama Lokasi',
@@ -99,14 +97,12 @@ class LokasiAbsensiForm(forms.ModelForm):
             'radius_meter': 'Radius (meter)',
             'is_active'   : 'Aktif',
         }
-
+    
     def clean_nama(self):
-        """Validasi nama tidak kosong dan tidak duplikat untuk supervisor yang sama."""
         nama = self.cleaned_data.get('nama', '').strip()
         if not nama:
             raise forms.ValidationError('Nama lokasi wajib diisi.')
         
-        # Cek duplikat hanya jika tambah (bukan edit)
         if not self.instance.pk:
             supervisor = getattr(self, '_supervisor', None)
             if supervisor:
@@ -116,76 +112,62 @@ class LokasiAbsensiForm(forms.ModelForm):
                 ).exists()
                 if exists:
                     raise forms.ValidationError(
-                        f'Lokasi dengan nama "{nama}" sudah ada untuk supervisor ini.'
+                        f'Lokasi "{nama}" sudah ada untuk supervisor ini.'
                     )
         
         return nama
-
+    
     def clean_latitude(self):
-        """
-        Validasi latitude:
-        - Wajib diisi
-        - Range -90 hingga 90
-        - Handle string dengan koma (locale ID)
-        """
+        """Gunakan KoordinatHelper untuk consistency."""
         val = self.cleaned_data.get('latitude')
         if val is None or str(val).strip() == '':
             raise forms.ValidationError('Latitude wajib diisi.')
         
-        # Handle locale: ganti koma ke titik jika string
-        if isinstance(val, str):
-            val = val.replace(',', '.')
-        
         try:
-            val = float(val)
-        except (TypeError, ValueError):
+            normalized = KoordinatHelper.normalize(val)
+        except ValueError:
             raise forms.ValidationError('Latitude harus berupa angka desimal.')
         
-        if not (-90 <= val <= 90):
-            raise forms.ValidationError('Latitude harus antara -90 dan 90.')
+        latitude_float = float(normalized)
+        if not (LATITUDE_MIN <= latitude_float <= LATITUDE_MAX):
+            raise forms.ValidationError(
+                f'Latitude harus antara {LATITUDE_MIN} dan {LATITUDE_MAX}.'
+            )
         
-        return val
-
+        return normalized
+    
     def clean_longitude(self):
-        """
-        Validasi longitude:
-        - Wajib diisi
-        - Range -180 hingga 180
-        - Handle string dengan koma (locale ID)
-        """
+        """Gunakan KoordinatHelper untuk consistency."""
         val = self.cleaned_data.get('longitude')
         if val is None or str(val).strip() == '':
             raise forms.ValidationError('Longitude wajib diisi.')
         
-        if isinstance(val, str):
-            val = val.replace(',', '.')
-        
         try:
-            val = float(val)
-        except (TypeError, ValueError):
+            normalized = KoordinatHelper.normalize(val)
+        except ValueError:
             raise forms.ValidationError('Longitude harus berupa angka desimal.')
         
-        if not (-180 <= val <= 180):
-            raise forms.ValidationError('Longitude harus antara -180 dan 180.')
+        longitude_float = float(normalized)
+        if not (LONGITUDE_MIN <= longitude_float <= LONGITUDE_MAX):
+            raise forms.ValidationError(
+                f'Longitude harus antara {LONGITUDE_MIN} dan {LONGITUDE_MAX}.'
+            )
         
-        return val
-
+        return normalized
+    
     def clean_radius_meter(self):
-        """
-        Validasi radius:
-        - Wajib diisi
-        - Range 10 hingga 1000 meter (sesuai slider client)
-        """
         radius = self.cleaned_data.get('radius_meter')
         if radius is None or str(radius).strip() == '':
             raise forms.ValidationError('Radius wajib diisi.')
         
         try:
-            radius = int(radius) if isinstance(radius, (int, float, str)) else 0
+            radius = int(radius)
         except (TypeError, ValueError):
             raise forms.ValidationError('Radius harus berupa angka bulat.')
         
-        if not (10 <= radius <= 1000):
-            raise forms.ValidationError('Radius harus antara 10 hingga 1000 meter.')
+        if not (RADIUS_MIN <= radius <= RADIUS_MAX):
+            raise forms.ValidationError(
+                f'Radius harus antara {RADIUS_MIN} dan {RADIUS_MAX} meter.'
+            )
         
         return radius

@@ -6,12 +6,10 @@ from outsourcing.decorators import supervisor_or_kepala_required
 from outsourcing.models import LaporanKegiatan, StatusLaporan
 from outsourcing.forms.laporan_forms import LaporanKegiatanForm
 
-
 def _get_supervisor(request):
     if request.user.role == 'supervisor':
         return request.user
     return request.supervisor_context
-
 
 @supervisor_or_kepala_required
 def laporan_list(request):
@@ -109,7 +107,7 @@ def laporan_edit(request, pk):
     laporan    = get_object_or_404(LaporanKegiatan, pk=pk, supervisor=supervisor)
 
     if laporan.status != StatusLaporan.DRAFT:
-        messages.error(request, 'Laporan yang sudah selesai atau dikirim tidak bisa diedit.')
+        messages.error(request, 'Laporan yang sudah selesai tidak bisa diedit.')
         return redirect('supervisor_laporan_detail', pk=pk)
 
     if request.method == 'POST':
@@ -168,6 +166,16 @@ def laporan_selesai(request, pk):
             'message': 'Laporan harus berstatus Draft untuk diselesaikan.'
         }, status=400)
 
+    if not laporan.semua_item_approved:
+        belum_approved = laporan.item_kegiatan.exclude(status='selesai').count()
+        return JsonResponse({
+            'success': False,
+            'message': (
+                f'Masih ada {belum_approved} item kegiatan yang belum '
+                f'di-approve oleh customer. Laporan belum bisa diselesaikan.'
+            )
+        }, status=400)
+
     laporan.status = StatusLaporan.SELESAI
     laporan.save()
 
@@ -175,29 +183,6 @@ def laporan_selesai(request, pk):
         'success': True,
         'message': f'Laporan "{laporan.nama_laporan}" berhasil diselesaikan.'
     })
-
-
-@supervisor_or_kepala_required
-def laporan_kirim(request, pk):
-    supervisor = _get_supervisor(request)
-    laporan    = get_object_or_404(LaporanKegiatan, pk=pk, supervisor=supervisor)
-
-    if laporan.status != StatusLaporan.SELESAI:
-        messages.error(request, 'Laporan harus berstatus Selesai sebelum dikirim ke customer.')
-        return redirect('supervisor_laporan_detail', pk=pk)
-
-    if request.method == 'POST':
-        laporan.status = StatusLaporan.DIKIRIM_CUSTOMER
-        laporan.save()
-        messages.success(request, f'Laporan "{laporan.nama_laporan}" berhasil dikirim ke customer.')
-        return redirect('supervisor_laporan_detail', pk=pk)
-
-    context = {
-        'laporan'   : laporan,
-        'supervisor': supervisor,
-        'page_title': f'Kirim Laporan — {laporan.nama_laporan}',
-    }
-    return render(request, 'supervisor/laporan/confirm_kirim.html', context)
 
 
 @supervisor_or_kepala_required

@@ -87,7 +87,6 @@ def dashboard_view(request):
         tanggal_laporan__month=bulan,
     )
 
-    laporan_dikirim = laporan_bulan.filter(status=StatusLaporan.DIKIRIM_CUSTOMER).count()
     laporan_selesai = laporan_bulan.filter(status=StatusLaporan.SELESAI).count()
     laporan_draft   = laporan_bulan.filter(status=StatusLaporan.DRAFT).count()
 
@@ -106,7 +105,7 @@ def dashboard_view(request):
 
     completion_rate = 0
     if total_penugasan > 0:
-        done = laporan_dikirim + laporan_selesai
+        done = laporan_selesai
         completion_rate = round((done / total_penugasan) * 100)
 
     # ── Perusahaan belum laporan ───────────────────────────
@@ -128,9 +127,7 @@ def dashboard_view(request):
         d_count = s_count = dr_count = 0
         for lap in lap_spv:
             ada.add((lap.perusahaan_id, lap.jenis_jasa_id))
-            if lap.status == StatusLaporan.DIKIRIM_CUSTOMER:
-                d_count += 1
-            elif lap.status == StatusLaporan.SELESAI:
+            if lap.status == StatusLaporan.SELESAI:
                 s_count += 1
             elif lap.status == StatusLaporan.DRAFT:
                 dr_count += 1
@@ -256,7 +253,6 @@ def dashboard_view(request):
         item_stats['selesai'],
     ])
     chart_completion_data = json.dumps([
-        laporan_dikirim,
         laporan_selesai,
         laporan_draft,
         belum_laporan,
@@ -275,7 +271,6 @@ def dashboard_view(request):
             'total_staff': total_staff,
             'total_perusahaan': total_penugasan,
             'belum_laporan': belum_laporan,
-            'laporan_dikirim': laporan_dikirim,
             'laporan_selesai': laporan_selesai,
             'laporan_draft': laporan_draft,
             'completion_rate': completion_rate,

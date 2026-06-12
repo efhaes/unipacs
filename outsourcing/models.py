@@ -1,14 +1,11 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.core.exceptions import ValidationError
-from django.core.validators import RegexValidator
+from django.core.validators import MaxValueValidator, RegexValidator,MinValueValidator
 import uuid
 from django.utils import timezone
 import math
 
-# ============================================================
-# MANAGER
-# ============================================================
 
 class AktifManager(models.Manager):
     """
@@ -18,7 +15,6 @@ class AktifManager(models.Manager):
     """
     def get_queryset(self):
         return super().get_queryset().filter(is_active=True)
-
 
 # ============================================================
 # ROLE CHOICES
@@ -487,9 +483,8 @@ class StaffTask(models.Model):
 # ============================================================
 
 class StatusLaporan(models.TextChoices):
-    DRAFT             = 'draft',              'Draft'
-    SELESAI           = 'selesai',            'Selesai'
-    DIKIRIM_CUSTOMER  = 'dikirim_customer',   'Dikirim ke Customer'
+    DRAFT   = 'draft',   'Draft'
+    SELESAI = 'selesai', 'Selesai'
 
 
 class LaporanKegiatan(models.Model):
@@ -498,7 +493,7 @@ class LaporanKegiatan(models.Model):
     Satu laporan mencakup satu perusahaan, satu area, dan satu jenis jasa.
     Berisi banyak ItemKegiatan (jadwal kerja staff).
 
-    PROTEKSI: Laporan dengan status 'dikirim_customer' tidak bisa
+    PROTEKSI: Laporan dengan status 'selesai' tidak bisa
     diedit atau dihapus. Ini dijaga di clean() dan delete().
     """
     perusahaan    = models.ForeignKey(
@@ -536,16 +531,23 @@ class LaporanKegiatan(models.Model):
 
     objects = models.Manager()
 
+    @property
+    def semua_item_approved(self):
+        """True jika laporan punya item DAN semua item sudah status 'selesai'."""
+        return self.item_kegiatan.exists() and not (
+            self.item_kegiatan.exclude(status=StatusItem.SELESAI).exists()
+        )
+
     def clean(self):
         # ── PROTEKSI EDIT ──────────────────────────────────────────────────
-        # Laporan yang sudah dikirim ke customer tidak boleh diubah sama sekali.
+        # Laporan yang sudah selesai tidak boleh diubah sama sekali.
         # Cek via database (bukan instance saat ini) agar tidak bisa di-bypass.
         if self.pk:
             try:
                 original = LaporanKegiatan.objects.get(pk=self.pk)
-                if original.status == StatusLaporan.DIKIRIM_CUSTOMER:
+                if original.status == StatusLaporan.SELESAI:
                     raise ValidationError(
-                        "Laporan yang sudah dikirim ke customer tidak dapat diubah. "
+                        "Laporan yang sudah selesai tidak dapat diubah. "
                         "Hubungi Admin jika diperlukan koreksi."
                     )
             except LaporanKegiatan.DoesNotExist:
@@ -566,10 +568,10 @@ class LaporanKegiatan(models.Model):
                 )
 
     def delete(self, *args, **kwargs):
-        # Proteksi hapus: laporan yang sudah dikirim ke customer tidak boleh dihapus
-        if self.status == StatusLaporan.DIKIRIM_CUSTOMER:
+        # Proteksi hapus: laporan yang sudah selesai tidak boleh dihapus
+        if self.status == StatusLaporan.SELESAI:
             raise ValidationError(
-                "Laporan yang sudah dikirim ke customer tidak dapat dihapus."
+                "Laporan yang sudah selesai tidak dapat dihapus."
             )
         super().delete(*args, **kwargs)
 
@@ -820,34 +822,54 @@ def hitung_jarak_meter(lat1, lon1, lat2, lon2) -> float:
 # Model — Lokasi Absensi
 # ---------------------------------------------------------------------------
  
+from outsourcing.constants import (
+    KOORDINAT_DECIMAL_PLACES,
+    KOORDINAT_MAX_DIGITS,
+    RADIUS_MIN,
+    RADIUS_MAX,
+    RADIUS_DEFAULT,
+)
+
 class LokasiAbsensi(models.Model):
-    supervisor = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='lokasi_absensi',       # .all() → banyak lokasi
-        limit_choices_to={'role': RoleChoices.SUPERVISOR},
-    )
+    supervisor    = models.ForeignKey(
+            User,
+            on_delete=models.CASCADE,
+            related_name='lokasi_yang_dibuat',
+            limit_choices_to={'role': RoleChoices.SUPERVISOR},
+        )    
     nama         = models.CharField(max_length=120)
-    latitude     = models.DecimalField(max_digits=10, decimal_places=7)
-    longitude    = models.DecimalField(max_digits=10, decimal_places=7)
-    radius_meter = models.PositiveIntegerField(default=100)
+    
+    # 🔧 Reference constants — mudah diubah global
+    latitude     = models.DecimalField(
+        max_digits=KOORDINAT_MAX_DIGITS,
+        decimal_places=KOORDINAT_DECIMAL_PLACES,
+    )
+    longitude    = models.DecimalField(
+        max_digits=KOORDINAT_MAX_DIGITS,
+        decimal_places=KOORDINAT_DECIMAL_PLACES,
+    )
+    
+    radius_meter = models.PositiveIntegerField(
+        default=RADIUS_DEFAULT,
+        validators=[
+            MinValueValidator(RADIUS_MIN),
+            MaxValueValidator(RADIUS_MAX),
+        ]
+    )
+    
     is_active    = models.BooleanField(default=True)
     diperbarui   = models.DateTimeField(auto_now=True)
     dibuat_pada  = models.DateTimeField(auto_now_add=True)
- 
+    
     class Meta:
-        verbose_name        = 'Lokasi Absensi'
+        verbose_name = 'Lokasi Absensi'
         verbose_name_plural = 'Lokasi Absensi'
-        ordering            = ['nama']
- 
+        ordering = ['nama']
+    
     def __str__(self):
         return f"{self.nama} (±{self.radius_meter}m)"
- 
+    
     def validasi_koordinat(self, lat_staff, lon_staff) -> tuple[bool, float]:
-        """
-        Return (valid: bool, jarak_meter: float).
-        valid = True jika staff berada dalam radius.
-        """
         jarak = hitung_jarak_meter(self.latitude, self.longitude, lat_staff, lon_staff)
         return jarak <= self.radius_meter, round(jarak, 1)
 

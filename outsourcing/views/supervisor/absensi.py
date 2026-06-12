@@ -516,12 +516,55 @@ def izin_review(request, pk):
     return redirect(request.META.get('HTTP_REFERER', 'supervisor_absensi_rekap'))
 
 
-# ─────────────────────────────────────────────
-# Lokasi Absensi — CRUD
-# ─────────────────────────────────────────────
+def _lokasi_json(lokasi):
+    """Helper — serialisasi lokasi ke dict untuk JsonResponse."""
+    return {
+        'ok'          : True,
+        'pk'          : lokasi.pk,
+        'nama'        : lokasi.nama,
+        'latitude'    : float(lokasi.latitude),
+        'longitude'   : float(lokasi.longitude),
+        'radius_meter': lokasi.radius_meter,
+        'is_active'   : lokasi.is_active,
+    }
+
+
+def _get_form_with_supervisor(request, form_class, *args, **kwargs):
+    """
+    Instantiate form dan inject supervisor (request.user) untuk
+    validasi duplikat nama di clean_nama().
+    """
+    form = form_class(*args, **kwargs)
+    form._supervisor = request.user
+    return form
+
+
+def supervisor_or_kepala_required(view_func):
+    """
+    Decorator: pastikan user sudah login dan punya role
+    supervisor atau kepala_supervisor.
+    """
+    from functools import wraps
+    from outsourcing.models import RoleChoices
+
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            from django.contrib.auth.views import redirect_to_login
+            return redirect_to_login(request.get_full_path())
+
+        allowed_roles = {RoleChoices.SUPERVISOR, RoleChoices.KEPALA_SUPERVISOR}
+        if request.user.role not in allowed_roles:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied
+
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
 
 @supervisor_or_kepala_required
 def lokasi_list(request):
+    """List semua lokasi absensi milik supervisor."""
     supervisor = _get_supervisor(request)
     lokasi_qs  = (
         LokasiAbsensi.objects
@@ -536,32 +579,28 @@ def lokasi_list(request):
 
 @supervisor_or_kepala_required
 def lokasi_tambah(request):
+    """Tambah lokasi absensi baru."""
     supervisor = _get_supervisor(request)
+    is_ajax    = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
     if request.method == 'POST':
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            form = LokasiAbsensiForm(request.POST)
-            if form.is_valid():
-                lokasi            = form.save(commit=False)
-                lokasi.supervisor = supervisor
-                lokasi.save()
-                return JsonResponse({
-                    'ok'    : True,
-                    'pk'    : lokasi.pk,
-                    'nama'  : lokasi.nama,
-                    'radius': lokasi.radius_meter,
-                })
-            return JsonResponse({'ok': False, 'errors': form.errors})
-
-        form = LokasiAbsensiForm(request.POST)
+        form = _get_form_with_supervisor(request, LokasiAbsensiForm, request.POST)
+        
         if form.is_valid():
             lokasi            = form.save(commit=False)
             lokasi.supervisor = supervisor
             lokasi.save()
+            
+            if is_ajax:
+                return JsonResponse(_lokasi_json(lokasi))
+            
             messages.success(request, f'Lokasi "{lokasi.nama}" berhasil ditambahkan.')
             return redirect('supervisor_lokasi_list')
+        else:
+            if is_ajax:
+                return JsonResponse({'ok': False, 'errors': form.errors}, status=400)
     else:
-        form = LokasiAbsensiForm()
+        form = _get_form_with_supervisor(request, LokasiAbsensiForm)
 
     return render(request, 'supervisor/lokasi/form.html', {
         'form'      : form,
@@ -572,29 +611,32 @@ def lokasi_tambah(request):
 
 @supervisor_or_kepala_required
 def lokasi_edit(request, pk):
+    """Edit lokasi absensi existing."""
     supervisor = _get_supervisor(request)
     lokasi     = get_object_or_404(LokasiAbsensi, pk=pk, supervisor=supervisor)
+    is_ajax    = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
     if request.method == 'POST':
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            form = LokasiAbsensiForm(request.POST, instance=lokasi)
-            if form.is_valid():
-                form.save()
-                return JsonResponse({
-                    'ok'    : True,
-                    'pk'    : lokasi.pk,
-                    'nama'  : lokasi.nama,
-                    'radius': lokasi.radius_meter,
-                })
-            return JsonResponse({'ok': False, 'errors': form.errors})
-
-        form = LokasiAbsensiForm(request.POST, instance=lokasi)
+        form = _get_form_with_supervisor(
+            request, 
+            LokasiAbsensiForm, 
+            request.POST, 
+            instance=lokasi
+        )
+        
         if form.is_valid():
-            form.save()
+            lokasi = form.save()  # Assign hasil save untuk data terbaru
+            
+            if is_ajax:
+                return JsonResponse(_lokasi_json(lokasi))
+            
             messages.success(request, f'Lokasi "{lokasi.nama}" berhasil diperbarui.')
             return redirect('supervisor_lokasi_list')
+        else:
+            if is_ajax:
+                return JsonResponse({'ok': False, 'errors': form.errors}, status=400)
     else:
-        form = LokasiAbsensiForm(instance=lokasi)
+        form = _get_form_with_supervisor(request, LokasiAbsensiForm, instance=lokasi)
 
     return render(request, 'supervisor/lokasi/form.html', {
         'form'      : form,
@@ -607,9 +649,12 @@ def lokasi_edit(request, pk):
 @supervisor_or_kepala_required
 @require_POST
 def lokasi_hapus(request, pk):
+    """Hapus lokasi absensi (dengan validasi QR aktif)."""
     supervisor = _get_supervisor(request)
     lokasi     = get_object_or_404(LokasiAbsensi, pk=pk, supervisor=supervisor)
+    is_ajax    = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
+    # Cek apakah lokasi masih aktif di QR hari ini
     qr_aktif = QRAbsensi.objects.filter(
         lokasi    = lokasi,
         tanggal   = timezone.localdate(),
@@ -617,20 +662,18 @@ def lokasi_hapus(request, pk):
     ).exists()
 
     if qr_aktif:
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({
-                'ok'   : False,
-                'error': 'Lokasi masih digunakan oleh QR aktif hari ini. Nonaktifkan QR terlebih dahulu.',
-            })
-        messages.error(request, 'Lokasi masih digunakan oleh QR aktif hari ini.')
+        msg = 'Lokasi masih digunakan oleh QR aktif hari ini. Nonaktifkan QR terlebih dahulu.'
+        if is_ajax:
+            return JsonResponse({'ok': False, 'error': msg}, status=400)
+        messages.error(request, msg)
         return redirect('supervisor_lokasi_list')
 
     nama = lokasi.nama
     lokasi.delete()
 
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+    if is_ajax:
         return JsonResponse({'ok': True, 'pk': pk, 'nama': nama})
-
+    
     messages.success(request, f'Lokasi "{nama}" berhasil dihapus.')
     return redirect('supervisor_lokasi_list')
 
@@ -638,12 +681,14 @@ def lokasi_hapus(request, pk):
 @supervisor_or_kepala_required
 @require_POST
 def lokasi_toggle_aktif(request, pk):
-    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
-        return JsonResponse({'ok': False}, status=400)
+    """Toggle is_active status lokasi (AJAX only)."""
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    if not is_ajax:
+        return JsonResponse({'ok': False, 'error': 'AJAX only.'}, status=400)
 
-    supervisor        = _get_supervisor(request)
-    lokasi            = get_object_or_404(LokasiAbsensi, pk=pk, supervisor=supervisor)
-    lokasi.is_active  = not lokasi.is_active
+    supervisor       = _get_supervisor(request)
+    lokasi           = get_object_or_404(LokasiAbsensi, pk=pk, supervisor=supervisor)
+    lokasi.is_active = not lokasi.is_active
     lokasi.save(update_fields=['is_active'])
 
     return JsonResponse({
@@ -655,18 +700,11 @@ def lokasi_toggle_aktif(request, pk):
 
 @supervisor_or_kepala_required
 def lokasi_detail_json(request, pk):
-    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
-        return JsonResponse({'ok': False}, status=400)
+    """Get detail lokasi as JSON (AJAX only)."""
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    if not is_ajax:
+        return JsonResponse({'ok': False, 'error': 'AJAX only.'}, status=400)
 
     supervisor = _get_supervisor(request)
     lokasi     = get_object_or_404(LokasiAbsensi, pk=pk, supervisor=supervisor)
-
-    return JsonResponse({
-        'ok'          : True,
-        'pk'          : lokasi.pk,
-        'nama'        : lokasi.nama,
-        'latitude'    : float(lokasi.latitude),
-        'longitude'   : float(lokasi.longitude),
-        'radius_meter': lokasi.radius_meter,
-        'is_active'   : lokasi.is_active,
-    })
+    return JsonResponse(_lokasi_json(lokasi))

@@ -1,4 +1,8 @@
 
+.page-content {
+    position: relative;
+    z-index: auto !important;
+}
 /* ── Page Header ── */
 .detail-header {
     display: flex;

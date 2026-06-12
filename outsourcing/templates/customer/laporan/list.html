@@ -105,24 +105,6 @@
     align-items: flex-end;
 }
 
-.btn-filter {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
-    border-radius: 10px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s;
-    border: 1px solid rgba(99,102,241,0.3);
-    text-decoration: none;
-    white-space: nowrap;
-    background: rgba(99,102,241,0.12);
-    color: #a5b4fc;
-}
-.btn-filter:hover { background: rgba(99,102,241,0.2); color: #a5b4fc; transform: translateY(-1px); }
-
 .btn-reset {
     display: inline-flex;
     align-items: center;
@@ -193,101 +175,124 @@
     background: var(--clr-accent-light);
     color: #a5b4fc;
     border: 1px solid var(--clr-accent-mid);
+    transition: opacity 0.2s;
 }
 
-/* ── Desktop/Tablet Table ── */
-.laporan-table {
-    width: 100%;
-    border-collapse: collapse;
-    background: transparent;
+/* ── Card Grid ── */
+.laporan-card-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem;
+    padding: 1.5rem;
 }
 
-.laporan-table thead tr {
+/* Individual card */
+.laporan-card {
+    padding: 1.4rem 1.5rem 1.25rem;
     background: rgba(255,255,255,0.03);
-    border-bottom: 1px solid var(--clr-border);
+    border: 1px solid var(--clr-border);
+    border-radius: 14px;
+    transition: background 0.15s, border-color 0.15s, transform 0.15s;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    min-height: 190px;
 }
 
-.laporan-table thead th {
+.laporan-card:hover {
+    background: rgba(99,102,241,0.06);
+    border-color: rgba(99,102,241,0.3);
+    transform: translateY(-2px);
+}
+
+/* Top row: nomor + jasa pill */
+.laporan-card-toprow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.laporan-card-num {
     font-size: 10px;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
     color: var(--clr-text-muted);
-    padding: 11px 16px;
-    white-space: nowrap;
-    border: none;
-    background: transparent;
-}
-
-.laporan-table tbody tr {
-    border-bottom: 1px solid var(--clr-border);
-    transition: background 0.15s;
-}
-
-.laporan-table tbody tr:last-child { border-bottom: none; }
-.laporan-table tbody tr:hover { background: rgba(255,255,255,0.025); }
-
-.laporan-table tbody td {
-    padding: 13px 16px;
-    font-size: 13px;
-    color: var(--clr-text-secondary);
-    border: none;
-    background: transparent;
-    vertical-align: middle;
-}
-
-.row-num {
-    font-size: 11px;
-    color: var(--clr-text-muted);
-    font-weight: 600;
-    width: 36px;
-    text-align: center;
-}
-
-.laporan-name-link {
-    font-size: 13.5px;
-    font-weight: 700;
-    color: var(--clr-text-primary);
-    text-decoration: none;
-    transition: color 0.15s;
-    display: block;
-    line-height: 1.3;
-}
-.laporan-name-link:hover { color: #a5b4fc; }
-
-.laporan-name-sub {
-    font-size: 11px;
-    color: var(--clr-text-muted);
-    margin-top: 2px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--clr-border);
+    border-radius: 6px;
+    padding: 2px 7px;
+    flex-shrink: 0;
 }
 
 .jasa-pill {
     display: inline-flex;
     align-items: center;
-    font-size: 11.5px;
+    font-size: 11px;
     font-weight: 600;
     padding: 3px 9px;
     border-radius: 6px;
     background: rgba(99,102,241,0.1);
     color: #a5b4fc;
     border: 1px solid rgba(99,102,241,0.2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
 }
 
-.date-cell {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--clr-text-secondary);
-    white-space: nowrap;
+/* Nama laporan */
+.laporan-card-name {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--clr-text-primary);
+    text-decoration: none;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    transition: color 0.15s;
+}
+.laporan-card-name:hover { color: #a5b4fc; }
+
+/* Meta row */
+.laporan-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.laporan-card-meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11.5px;
+    color: var(--clr-text-muted);
+}
+
+.laporan-card-meta-item i { font-size: 11px; opacity: 0.6; }
+
+/* Footer */
+.laporan-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-top: auto;
+    padding-top: 0.6rem;
+    border-top: 1px solid rgba(255,255,255,0.04);
 }
 
 .supervisor-cell {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 7px;
+    min-width: 0;
 }
 
 .supervisor-avatar {
-    width: 28px; height: 28px;
+    width: 26px; height: 26px;
     border-radius: 50%;
     background: rgba(99,102,241,0.15);
     border: 1px solid rgba(99,102,241,0.25);
@@ -299,6 +304,14 @@
     color: #a5b4fc;
     flex-shrink: 0;
     text-transform: uppercase;
+}
+
+.supervisor-name {
+    font-size: 12px;
+    color: var(--clr-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .btn-view {
@@ -315,123 +328,54 @@
     color: #a5b4fc;
     transition: all 0.15s;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 .btn-view:hover { background: rgba(99,102,241,0.2); color: #a5b4fc; transform: translateY(-1px); }
+
+/* ── Hidden card (JS filter) ── */
+.laporan-card[data-hidden="true"] { display: none; }
 
 /* ── Empty State ── */
 .empty-state {
     text-align: center;
     padding: 4rem 2rem;
     color: var(--clr-text-muted);
+    grid-column: 1 / -1;
 }
 .empty-state i { font-size: 2.5rem; opacity: 0.2; display: block; margin-bottom: 10px; }
 .empty-state p { font-size: 13.5px; margin: 0; }
 
-/* ── Mobile Card List (hidden by default) ── */
-.laporan-card-list { display: none; }
-
-.laporan-card {
-    padding: 1rem 1.1rem;
-    border-bottom: 1px solid var(--clr-border);
-    transition: background 0.15s;
-}
-.laporan-card:last-child { border-bottom: none; }
-.laporan-card:hover { background: rgba(255,255,255,0.02); }
-
-.laporan-card-top {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 0.75rem;
-    margin-bottom: 0.6rem;
-}
-
-.laporan-card-num {
-    font-size: 10px;
-    font-weight: 700;
+/* No-results message (JS) */
+#no-results-msg {
+    display: none;
+    text-align: center;
+    padding: 3.5rem 2rem;
     color: var(--clr-text-muted);
-    background: rgba(255,255,255,0.05);
-    border: 1px solid var(--clr-border);
-    border-radius: 6px;
-    padding: 2px 7px;
-    flex-shrink: 0;
-    margin-top: 2px;
+    border-top: 1px solid var(--clr-border);
 }
+#no-results-msg i { font-size: 2rem; opacity: 0.2; display: block; margin-bottom: 8px; }
+#no-results-msg p { font-size: 13.5px; margin: 0; }
 
-.laporan-card-name {
-    font-size: 13.5px;
-    font-weight: 700;
-    color: var(--clr-text-primary);
-    text-decoration: none;
-    line-height: 1.35;
-    flex: 1;
-    transition: color 0.15s;
-}
-.laporan-card-name:hover { color: #a5b4fc; }
-
-.laporan-card-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    align-items: center;
-    margin-bottom: 0.7rem;
-}
-
-.laporan-card-meta-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 11.5px;
-    color: var(--clr-text-muted);
-}
-
-.laporan-card-meta-item i { font-size: 11px; opacity: 0.6; }
-
-.laporan-card-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-}
-
-.laporan-card-supervisor {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-}
-
-.btn-view-full {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 6px 14px;
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 600;
-    text-decoration: none;
-    background: rgba(99,102,241,0.12);
-    border: 1px solid rgba(99,102,241,0.28);
-    color: #a5b4fc;
-    transition: all 0.15s;
-}
-.btn-view-full:hover { background: rgba(99,102,241,0.22); color: #a5b4fc; }
-
-/* ── Tablet (≤900px): hide some table columns ── */
+/* ── Tablet (≤900px) ── */
 @media (max-width: 900px) {
-    .hide-tablet { display: none; }
+    .laporan-card-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        padding: 1.25rem;
+    }
 
-    .filter-bar { gap: 0.6rem; }
     .filter-group { min-width: 140px; }
     .filter-group.search-group { min-width: 100%; flex: unset; }
 }
 
-/* ── Mobile (≤600px): switch table → cards ── */
+/* ── Mobile (≤600px) ── */
 @media (max-width: 600px) {
-    /* Hide desktop table, show card list */
-    .laporan-table-wrapper { display: none; }
-    .laporan-card-list { display: block; }
+    .laporan-card-grid {
+        grid-template-columns: 1fr;
+        gap: 0.85rem;
+        padding: 1rem;
+    }
 
-    /* Filter bar full column */
     .filter-bar {
         flex-direction: column;
         padding: 0.85rem 1rem;
@@ -440,13 +384,10 @@
     .filter-group,
     .filter-group.search-group { min-width: 100%; flex: unset; }
     .filter-actions { width: 100%; }
-    .btn-filter, .btn-reset { flex: 1; justify-content: center; }
+    .btn-reset { flex: 1; justify-content: center; }
 
-    /* Page header */
     .page-title { font-size: 1.25rem; }
     .page-header { margin-bottom: 1.25rem; }
-
-    /* Table card header */
     .table-card-header { padding: 0.85rem 1rem; }
 }
 </style>
@@ -462,46 +403,47 @@
     </div>
 </div>
 
-<!-- ── FILTER BAR ── -->
-<form method="get">
+<!-- ── FILTER BAR ──
+     Form masih ada untuk server-side fallback (misal user nonaktifkan JS atau
+     bookmark URL dengan query). JS di bawah menangani live filtering. -->
+<form method="get" id="filter-form">
     <div class="filter-bar">
 
         <div class="filter-group search-group">
             <div class="filter-label"><i class="bi bi-search" style="margin-right:3px;"></i> Cari Laporan</div>
             <div class="search-wrapper">
                 <i class="bi bi-search search-icon"></i>
-                <input type="text" name="q" value="{{ q }}" class="filter-input"
-                       placeholder="Nama laporan, jenis jasa, area...">
+                <input type="text" name="q" id="input-q" value="{{ q }}"
+                       class="filter-input" placeholder="Nama laporan, jenis jasa, area...">
             </div>
         </div>
 
         <div class="filter-group">
             <div class="filter-label"><i class="bi bi-calendar3" style="margin-right:3px;"></i> Dari Tanggal</div>
-            <input type="date" name="tgl_dari" value="{{ tgl_dari }}" class="filter-input">
+            <input type="date" name="tgl_dari" id="input-tgl-dari"
+                   value="{{ tgl_dari }}" class="filter-input">
         </div>
 
         <div class="filter-group">
             <div class="filter-label"><i class="bi bi-calendar3-range" style="margin-right:3px;"></i> Sampai Tanggal</div>
-            <input type="date" name="tgl_sampai" value="{{ tgl_sampai }}" class="filter-input">
+            <input type="date" name="tgl_sampai" id="input-tgl-sampai"
+                   value="{{ tgl_sampai }}" class="filter-input">
         </div>
 
+        {% if q or tgl_dari or tgl_sampai %}
         <div class="filter-actions">
-            <button type="submit" class="btn-filter">
-                <i class="bi bi-funnel"></i> Filter
-            </button>
-            {% if q or tgl_dari or tgl_sampai %}
-            <a href="?" class="btn-reset">
+            <a href="?" class="btn-reset" id="btn-reset-server">
                 <i class="bi bi-x-lg"></i> Reset
             </a>
-            {% endif %}
         </div>
+        {% endif %}
 
     </div>
 </form>
 
-<!-- Active filter chips -->
+<!-- Active filter chips (server-side, shown on page load jika ada filter aktif) -->
 {% if q or tgl_dari or tgl_sampai %}
-<div class="filter-active-chips">
+<div class="filter-active-chips" id="server-chips">
     {% if q %}
         <span class="filter-chip"><i class="bi bi-search"></i> "{{ q }}"</span>
     {% endif %}
@@ -514,91 +456,41 @@
 </div>
 {% endif %}
 
-<!-- ── TABLE CARD ── -->
+<!-- ── CARD WRAPPER ── -->
 <div class="table-card">
     <div class="table-card-header">
         <span class="table-card-title">Daftar Laporan</span>
-        <span class="table-count-badge">{{ laporan_list|length }} laporan</span>
+        {# FIX: gunakan laporan_count dari view bukan |length yang bisa trigger evaluasi ulang #}
+        <span class="table-count-badge" id="count-badge">
+            <span id="count-visible">{{ laporan_count }}</span> laporan
+        </span>
     </div>
 
-    <!-- ════ DESKTOP / TABLET TABLE ════ -->
-    <div class="laporan-table-wrapper">
-        <div class="table-responsive">
-            <table class="laporan-table">
-                <thead>
-                    <tr>
-                        <th class="row-num">#</th>
-                        <th>Nama Laporan</th>
-                        <th class="hide-tablet">Jenis Jasa</th>
-                        <th class="hide-tablet">Area</th>
-                        <th class="hide-tablet">Supervisor</th>
-                        <th>Tanggal</th>
-                        <th>Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for l in laporan_list %}
-                    <tr>
-                        <td class="row-num">{{ forloop.counter }}</td>
-                        <td>
-                            <a href="{% url 'customer_laporan_detail' l.pk %}" class="laporan-name-link">
-                                {{ l.nama_laporan }}
-                            </a>
-                            <div class="laporan-name-sub">{{ l.area.nama_area }}</div>
-                        </td>
-                        <td class="hide-tablet">
-                            <span class="jasa-pill">{{ l.jenis_jasa.nama_jasa }}</span>
-                        </td>
-                        <td class="hide-tablet" style="color:var(--clr-text-secondary);font-size:13px;">
-                            {{ l.area.nama_area }}
-                        </td>
-                        <td class="hide-tablet">
-                            <div class="supervisor-cell">
-                                <div class="supervisor-avatar">{{ l.supervisor.nama_lengkap|slice:":2" }}</div>
-                                <span style="font-size:13px;color:var(--clr-text-secondary);">{{ l.supervisor.nama_lengkap }}</span>
-                            </div>
-                        </td>
-                        <td class="date-cell">
-                            <i class="bi bi-calendar3" style="margin-right:4px;opacity:0.5;"></i>
-                            {{ l.tanggal_laporan|date:"d M Y" }}
-                        </td>
-                        <td>
-                            <a href="{% url 'customer_laporan_detail' l.pk %}" class="btn-view">
-                                <i class="bi bi-eye"></i> Lihat
-                            </a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="7">
-                            <div class="empty-state">
-                                <i class="bi bi-clipboard-x"></i>
-                                <p>Belum ada laporan{% if q or tgl_dari or tgl_sampai %} yang sesuai filter{% endif %}.</p>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
+    <div class="laporan-card-grid" id="laporan-grid">
 
-    <!-- ════ MOBILE CARD LIST ════ -->
-    <div class="laporan-card-list">
         {% for l in laporan_list %}
-        <div class="laporan-card">
+        <div class="laporan-card"
+             {# Data attributes untuk client-side filter — hindari XSS, gunakan |lower dan escapejs #}
+             data-nama="{{ l.nama_laporan|lower }}"
+             data-jasa="{{ l.jenis_jasa.nama_jasa|lower }}"
+             data-area="{{ l.area.nama_area|lower }}"
+             {# FIX: gunakan supervisor nama dengan safe fallback jika supervisor bisa null #}
+             data-supervisor="{{ l.supervisor.nama_lengkap|default:''|lower }}"
+             data-tanggal="{{ l.tanggal_laporan|date:'Y-m-d' }}">
 
-            <!-- Top: nomor + nama + tombol lihat -->
-            <div class="laporan-card-top">
+            <!-- Top row -->
+            <div class="laporan-card-toprow">
                 <span class="laporan-card-num">{{ forloop.counter }}</span>
-                <a href="{% url 'customer_laporan_detail' l.pk %}" class="laporan-card-name">
-                    {{ l.nama_laporan }}
-                </a>
+                <span class="jasa-pill" title="{{ l.jenis_jasa.nama_jasa }}">{{ l.jenis_jasa.nama_jasa }}</span>
             </div>
 
-            <!-- Meta info -->
+            <!-- Nama -->
+            <a href="{% url 'customer_laporan_detail' l.pk %}" class="laporan-card-name">
+                {{ l.nama_laporan }}
+            </a>
+
+            <!-- Meta -->
             <div class="laporan-card-meta">
-                <span class="jasa-pill">{{ l.jenis_jasa.nama_jasa }}</span>
                 <span class="laporan-card-meta-item">
                     <i class="bi bi-geo-alt"></i>{{ l.area.nama_area }}
                 </span>
@@ -607,14 +499,19 @@
                 </span>
             </div>
 
-            <!-- Footer: supervisor + tombol -->
+            <!-- Footer -->
             <div class="laporan-card-footer">
-                <div class="laporan-card-supervisor">
+                <div class="supervisor-cell">
+                    {# FIX: guard supervisor null — template tidak crash jika supervisor dihapus #}
+                    {% if l.supervisor %}
                     <div class="supervisor-avatar">{{ l.supervisor.nama_lengkap|slice:":2" }}</div>
-                    <span style="font-size:12px;color:var(--clr-text-secondary);">{{ l.supervisor.nama_lengkap }}</span>
+                    <span class="supervisor-name">{{ l.supervisor.nama_lengkap }}</span>
+                    {% else %}
+                    <span class="supervisor-name" style="font-style:italic;opacity:0.5;">Tanpa supervisor</span>
+                    {% endif %}
                 </div>
-                <a href="{% url 'customer_laporan_detail' l.pk %}" class="btn-view-full">
-                    <i class="bi bi-eye"></i> Lihat Detail
+                <a href="{% url 'customer_laporan_detail' l.pk %}" class="btn-view">
+                    <i class="bi bi-eye"></i> Lihat
                 </a>
             </div>
 
@@ -625,8 +522,135 @@
             <p>Belum ada laporan{% if q or tgl_dari or tgl_sampai %} yang sesuai filter{% endif %}.</p>
         </div>
         {% endfor %}
+
+    </div><!-- /laporan-card-grid -->
+
+    <!-- No-results saat JS filter aktif -->
+    <div id="no-results-msg">
+        <i class="bi bi-search"></i>
+        <p>Tidak ada laporan yang cocok dengan pencarian.</p>
     </div>
 
-</div>
+</div><!-- /table-card -->
 
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+(function () {
+    "use strict";
+
+    const inputQ       = document.getElementById('input-q');
+    const inputDari    = document.getElementById('input-tgl-dari');
+    const inputSampai  = document.getElementById('input-tgl-sampai');
+    const grid         = document.getElementById('laporan-grid');
+    const noResultsMsg = document.getElementById('no-results-msg');
+    const countBadge   = document.getElementById('count-visible');
+
+    if (!grid) return; // Guard: empty state, tidak ada kartu
+
+    const allCards = Array.from(grid.querySelectorAll('.laporan-card'));
+    const totalCount = allCards.length;
+
+    // ── Debounce helper ──────────────────────────────────────────────────────
+    function debounce(fn, delay) {
+        let timer;
+        return function (...args) {
+            clearTimeout(timer);
+            timer = setTimeout(() => fn.apply(this, args), delay);
+        };
+    }
+
+    // ── Main filter function ─────────────────────────────────────────────────
+    function applyFilter() {
+        const q      = (inputQ      ? inputQ.value.trim().toLowerCase()      : '');
+        const dari   = (inputDari   ? inputDari.value   : '');   // 'YYYY-MM-DD' or ''
+        const sampai = (inputSampai ? inputSampai.value : '');
+
+        let visibleCount = 0;
+
+        allCards.forEach(card => {
+            // Text search: nama, jasa, area, supervisor
+            const matchText = !q || (
+                card.dataset.nama.includes(q)       ||
+                card.dataset.jasa.includes(q)       ||
+                card.dataset.area.includes(q)       ||
+                card.dataset.supervisor.includes(q)
+            );
+
+            // Date range — data-tanggal is 'YYYY-MM-DD', comparison is lexicographic (safe for ISO dates)
+            const tgl = card.dataset.tanggal; // 'YYYY-MM-DD'
+            const matchDari   = !dari   || tgl >= dari;
+            const matchSampai = !sampai || tgl <= sampai;
+
+            const visible = matchText && matchDari && matchSampai;
+            card.dataset.hidden = visible ? 'false' : 'true';
+            if (visible) visibleCount++;
+        });
+
+        // Update count badge
+        if (countBadge) {
+            countBadge.textContent = visibleCount;
+        }
+
+        // Show/hide no-results
+        if (noResultsMsg) {
+            noResultsMsg.style.display = (visibleCount === 0 && totalCount > 0) ? 'block' : 'none';
+        }
+
+        // Show/hide reset button dynamically
+        updateResetButton(q, dari, sampai);
+    }
+
+    // ── Dynamic reset button ─────────────────────────────────────────────────
+    function updateResetButton(q, dari, sampai) {
+        const filterActions = document.querySelector('.filter-actions');
+        const existingReset = document.getElementById('btn-reset-js');
+
+        const hasFilter = q || dari || sampai;
+
+        if (hasFilter && !existingReset && filterActions) {
+            const btn = document.createElement('a');
+            btn.href = '?';
+            btn.id = 'btn-reset-js';
+            btn.className = 'btn-reset';
+            btn.innerHTML = '<i class="bi bi-x-lg"></i> Reset';
+            filterActions.appendChild(btn);
+        } else if (!hasFilter && existingReset) {
+            existingReset.remove();
+        }
+
+        // Server-side reset button (rendered on load) — hide if no active filter
+        const serverReset = document.getElementById('btn-reset-server');
+        if (serverReset) {
+            serverReset.style.display = hasFilter ? '' : 'none';
+        }
+    }
+
+    // ── Bind events ──────────────────────────────────────────────────────────
+    const debouncedFilter = debounce(applyFilter, 250);
+
+    if (inputQ) {
+        inputQ.addEventListener('input', debouncedFilter);
+    }
+
+    // Date inputs: langsung filter saat berubah (tidak perlu debounce)
+    if (inputDari)   inputDari.addEventListener('change',   applyFilter);
+    if (inputSampai) inputSampai.addEventListener('change', applyFilter);
+
+    // Pastikan filter-actions div ada (untuk sisipkan reset button JS)
+    // Jika belum ada, buat satu
+    const filterBar = document.querySelector('.filter-bar');
+    if (filterBar && !document.querySelector('.filter-actions')) {
+        const fa = document.createElement('div');
+        fa.className = 'filter-actions';
+        filterBar.appendChild(fa);
+    }
+
+    // Run on load jika ada nilai awal (dari server-side filter)
+    applyFilter();
+
+})();
+</script>
 {% endblock %}

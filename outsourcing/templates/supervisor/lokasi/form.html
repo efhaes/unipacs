@@ -1,4 +1,5 @@
 {% extends 'supervisor/base_supervisor.html' %}
+{% load lokasi_filters %}
 {% block title %}{% if mode == 'edit' %}Edit{% else %}Tambah{% endif %} Lokasi Absensi{% endblock %}
 
 {% block extra_css %}
@@ -323,38 +324,47 @@
             Info Lokasi
           </div>
 
+          <!-- Field: Nama Lokasi -->
           <div class="lk-field">
-            <label class="lk-label" for="{{ form.nama.id_for_label }}">Nama Lokasi</label>
-            <input type="text" name="nama"
-                   id="{{ form.nama.id_for_label }}"
+            <label class="lk-label" for="id_nama">Nama Lokasi</label>
+            <input type="text" 
+                   name="nama"
+                   id="id_nama"
                    class="lk-input"
                    value="{{ form.nama.value|default:'' }}"
-                   placeholder="Contoh: Kantor Pusat Lt.3, Gudang B…">
+                   placeholder="Contoh: Kantor Pusat Lt.3, Gudang B…"
+                   required>
             {% if form.nama.errors %}
               <div class="lk-error">{{ form.nama.errors.0 }}</div>
             {% endif %}
           </div>
 
-          <!-- Koordinat -->
+          <!-- Field: Koordinat (Latitude & Longitude) -->
           <div class="lk-field">
             <label class="lk-label">Koordinat</label>
             <div class="coord-row">
               <div>
-                <input type="number" name="latitude"
-                       id="{{ form.latitude.id_for_label }}"
-                       class="lk-input" step="any"
-                       value="{{ form.latitude.value|default:'' }}"
-                       placeholder="Latitude">
+                <input type="number" 
+                       name="latitude"
+                       id="id_latitude"
+                       class="lk-input" 
+                       step="any"
+                       value="{{ form.latitude.value|js_float }}"
+                       placeholder="Latitude"
+                       required>
                 {% if form.latitude.errors %}
                   <div class="lk-error">{{ form.latitude.errors.0 }}</div>
                 {% endif %}
               </div>
               <div>
-                <input type="number" name="longitude"
-                       id="{{ form.longitude.id_for_label }}"
-                       class="lk-input" step="any"
-                       value="{{ form.longitude.value|default:'' }}"
-                       placeholder="Longitude">
+                <input type="number" 
+                       name="longitude"
+                       id="id_longitude"
+                       class="lk-input" 
+                       step="any"
+                       value="{{ form.longitude.value|js_float }}"
+                       placeholder="Longitude"
+                       required>
                 {% if form.longitude.errors %}
                   <div class="lk-error">{{ form.longitude.errors.0 }}</div>
                 {% endif %}
@@ -362,14 +372,17 @@
             </div>
           </div>
 
-          <!-- Radius -->
+          <!-- Field: Radius Absensi -->
           <div class="lk-field">
-            <label class="lk-label" for="{{ form.radius_meter.id_for_label }}">
+            <label class="lk-label" for="radiusSlider">
               Radius Absensi
             </label>
             <div style="display:flex;align-items:center;gap:10px;">
-              <input type="range" id="radiusSlider"
-                     min="10" max="1000" step="10"
+              <input type="range" 
+                     id="radiusSlider"
+                     min="10" 
+                     max="1000" 
+                     step="10"
                      value="{{ form.radius_meter.value|default:'100' }}"
                      style="flex:1;accent-color:var(--clr-accent);">
               <div style="background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);
@@ -378,8 +391,9 @@
                    id="radiusDisplay">
                 {{ form.radius_meter.value|default:'100' }}m
               </div>
-              <input type="hidden" name="radius_meter"
-                     id="{{ form.radius_meter.id_for_label }}"
+              <input type="hidden" 
+                     name="radius_meter"
+                     id="id_radius_meter"
                      value="{{ form.radius_meter.value|default:'100' }}">
             </div>
             <div style="font-size:11px;color:var(--clr-text-muted);margin-top:5px;">
@@ -390,15 +404,20 @@
             {% endif %}
           </div>
 
-          <!-- Toggle aktif -->
+          <!-- Field: Toggle Aktif -->
           <div class="toggle-row">
-            {{ form.is_active }}
-            <label class="toggle-label" for="{{ form.is_active.id_for_label }}">
+            <input type="checkbox" 
+                   name="is_active"
+                   id="id_is_active"
+                   class="form-check-input"
+                   {% if form.is_active.value %}checked{% endif %}>
+            <label class="toggle-label" for="id_is_active">
               Aktifkan validasi lokasi
               <span class="toggle-sub">Jika OFF, QR tidak mewajibkan cek lokasi</span>
             </label>
           </div>
 
+          <!-- Submit Button -->
           <button type="submit" class="btn-submit">
             {% if mode == 'edit' %}
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -470,7 +489,8 @@
                 Atau tempel link Google Maps langsung:
               </div>
               <div class="paste-row">
-                <input type="text" id="gmapsInput"
+                <input type="text" 
+                       id="gmapsInput"
                        placeholder="https://maps.google.com/?q=-6.208763,106.845599 atau koordinat langsung">
                 <button type="button" id="gmapsParseBtn">Ambil</button>
               </div>
@@ -503,7 +523,7 @@
 
         <div class="map-coord-display" id="coordDisplay">
           {% if mode == 'edit' %}
-            📍 {{ lokasi.latitude }}, {{ lokasi.longitude }}
+            📍 {{ lokasi.latitude|js_float }}, {{ lokasi.longitude|js_float }}
           {% else %}
             Belum ada pin — klik peta, drag pin, atau pakai GPS
           {% endif %}
@@ -522,24 +542,32 @@
 document.addEventListener('DOMContentLoaded', function () {
 
   // ── Referensi elemen ───────────────────────────────────────────────────
-  var latInput    = document.getElementById('{{ form.latitude.id_for_label }}');
-  var lonInput    = document.getElementById('{{ form.longitude.id_for_label }}');
-  var radiusInput = document.getElementById('{{ form.radius_meter.id_for_label }}');
+  var latInput    = document.getElementById('id_latitude');
+  var lonInput    = document.getElementById('id_longitude');
+  var radiusInput = document.getElementById('id_radius_meter');
   var slider      = document.getElementById('radiusSlider');
   var radDisplay  = document.getElementById('radiusDisplay');
   var coordDisp   = document.getElementById('coordDisplay');
   var mapEl       = document.getElementById('map-picker');
 
   // ── Slider radius ──────────────────────────────────────────────────────
+  // Sinkronisasi slider dengan hidden input value saat page load
+  if (radiusInput.value) {
+    var initialRadius = parseInt(radiusInput.value) || 100;
+    slider.value = initialRadius;
+    radDisplay.textContent = initialRadius + 'm';
+  }
+
   slider.addEventListener('input', function () {
-    radDisplay.textContent = this.value + 'm';
-    radiusInput.value      = this.value;
-    if (circle) circle.setRadius(parseInt(this.value));
+    var val = this.value;
+    radDisplay.textContent = val + 'm';
+    radiusInput.value      = val;
+    if (circle) circle.setRadius(parseInt(val));
   });
 
-  // ── Map init ───────────────────────────────────────────────────────────
-  var initLat  = {% if mode == 'edit' %}{{ lokasi.latitude }}{% else %}-6.2088{% endif %};
-  var initLon  = {% if mode == 'edit' %}{{ lokasi.longitude }}{% else %}106.8456{% endif %};
+  // ── Map initialization ─────────────────────────────────────────────────
+  var initLat  = {% if mode == 'edit' %}{{ lokasi.latitude|js_float }}{% else %}-6.2088{% endif %};
+  var initLon  = {% if mode == 'edit' %}{{ lokasi.longitude|js_float }}{% else %}106.8456{% endif %};
   var initZoom = {% if mode == 'edit' %}16{% else %}12{% endif %};
 
   var map    = L.map('map-picker').setView([initLat, initLon], initZoom);
@@ -550,7 +578,9 @@ document.addEventListener('DOMContentLoaded', function () {
     attribution: '© OpenStreetMap',
   }).addTo(map);
 
-  function getRadius() { return parseInt(radiusInput.value) || 100; }
+  function getRadius() { 
+    return parseInt(radiusInput.value) || 100; 
+  }
 
   function setPin(lat, lon, fly) {
     var r = getRadius();
@@ -575,7 +605,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (fly) map.flyTo([lat, lon], 16, { duration: 1 });
 
-    // Drag → update koordinat
+    // Update koordinat saat marker di-drag
     marker.on('dragend', function (e) {
       var pos = e.target.getLatLng();
       circle.setLatLng(pos);
@@ -585,15 +615,17 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // Klik peta
-  map.on('click', function (e) { setPin(e.latlng.lat, e.latlng.lng, false); });
+  // Klik di peta → set pin
+  map.on('click', function (e) { 
+    setPin(e.latlng.lat, e.latlng.lng, false); 
+  });
 
-  // Init pin mode edit
+  // Init pin jika mode edit
   {% if mode == 'edit' %}
-  setPin({{ lokasi.latitude }}, {{ lokasi.longitude }}, false);
-  {% endif %}
+  setPin({{ lokasi.latitude|js_float }}, {{ lokasi.longitude|js_float }}, false);
+  {% endif %} 
 
-  // Sync saat input koordinat diketik manual
+  // Sinkronisasi saat user ketik koordinat manual
   function syncFromInput() {
     var lat = parseFloat(latInput.value);
     var lon = parseFloat(lonInput.value);
@@ -602,15 +634,18 @@ document.addEventListener('DOMContentLoaded', function () {
   latInput.addEventListener('blur', syncFromInput);
   lonInput.addEventListener('blur', syncFromInput);
 
-  // ── GPS ────────────────────────────────────────────────────────────────
+  // ── GPS Button ──────────────────────────────────────────────────────────
   var gpsBtn   = document.getElementById('gpsBtn');
   var gpsLabel = document.getElementById('gpsBtnLabel');
 
-  gpsBtn.addEventListener('click', function () {
+  gpsBtn.addEventListener('click', function (e) {
+    e.preventDefault();
+    
     if (!navigator.geolocation) {
       alert('Browser kamu tidak mendukung GPS.');
       return;
     }
+    
     gpsBtn.disabled   = true;
     gpsLabel.textContent = 'Mendapatkan lokasi…';
 
@@ -620,7 +655,8 @@ document.addEventListener('DOMContentLoaded', function () {
         gpsBtn.disabled      = false;
         gpsLabel.textContent = 'Pakai Lokasi GPS Saya Sekarang';
       },
-      function () {
+      function (error) {
+        console.error('Geolocation error:', error);
         alert('Gagal mendapatkan lokasi. Aktifkan izin GPS di browser.');
         gpsBtn.disabled      = false;
         gpsLabel.textContent = 'Pakai Lokasi GPS Saya Sekarang';
@@ -629,21 +665,24 @@ document.addEventListener('DOMContentLoaded', function () {
     );
   });
 
-  // ── Panduan toggle ─────────────────────────────────────────────────────
+  // ── Panduan toggle ──────────────────────────────────────────────────────
   var pandToggle = document.getElementById('panduan-toggle');
   var pandBody   = document.getElementById('panduan-body');
 
-  pandToggle.addEventListener('click', function () {
+  pandToggle.addEventListener('click', function (e) {
+    e.preventDefault();
     var open = pandBody.classList.toggle('show');
     pandToggle.classList.toggle('open', open);
   });
 
-  // ── Parse link / koordinat Google Maps ────────────────────────────────
+  // ── Parse Google Maps link / koordinat ────────────────────────────────
   var gmapsInput    = document.getElementById('gmapsInput');
   var gmapsParseBtn = document.getElementById('gmapsParseBtn');
   var pasteFeedback = document.getElementById('pasteFeedback');
 
-  gmapsParseBtn.addEventListener('click', function () {
+  gmapsParseBtn.addEventListener('click', function (e) {
+    e.preventDefault();
+    
     var raw = gmapsInput.value.trim();
     if (!raw) return;
 
@@ -686,9 +725,12 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-  // Enter di input paste = klik tombol Ambil
+  // Enter di input paste = click button
   gmapsInput.addEventListener('keypress', function (e) {
-    if (e.key === 'Enter') { e.preventDefault(); gmapsParseBtn.click(); }
+    if (e.key === 'Enter') { 
+      e.preventDefault(); 
+      gmapsParseBtn.click(); 
+    }
   });
 
 });

@@ -2,6 +2,7 @@
 {% block title %}Kelola Lokasi Absensi{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
 .lokasi-card {
   background: rgba(255,255,255,0.02);
@@ -45,9 +46,20 @@
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
 }
 .action-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
-.action-btn.danger:hover { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.35); color: #fca5a5; }
+.action-btn.danger:hover {
+  background: rgba(239,68,68,0.15);
+  border-color: rgba(239,68,68,0.35);
+  color: #fca5a5;
+}
+.page-content {
+  position: relative;
+  z-index: auto !important;
+}
 </style>
 {% endblock %}
 
@@ -92,8 +104,10 @@
         <div>
           <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
             <span style="color:var(--clr-text-primary);font-weight:600;font-size:15px">{{ lokasi.nama }}</span>
-            <span class="badge-aktif" id="badge-{{ lokasi.pk }}" {% if not lokasi.is_active %}style="display:none"{% endif %}>Aktif</span>
-            <span class="badge-nonaktif" id="badge-off-{{ lokasi.pk }}" {% if lokasi.is_active %}style="display:none"{% endif %}>Nonaktif</span>
+            <span class="badge-aktif" id="badge-{{ lokasi.pk }}"
+                  {% if not lokasi.is_active %}style="display:none"{% endif %}>Aktif</span>
+            <span class="badge-nonaktif" id="badge-off-{{ lokasi.pk }}"
+                  {% if lokasi.is_active %}style="display:none"{% endif %}>Nonaktif</span>
           </div>
           <div class="d-flex gap-2 flex-wrap">
             <span class="coord-chip">Lat: {{ lokasi.latitude }}</span>
@@ -105,16 +119,25 @@
         <!-- Aksi kanan -->
         <div class="d-flex gap-2 flex-wrap">
           <button class="action-btn"
-                  onclick="previewMap({{ lokasi.pk }}, '{{ lokasi.nama }}', {{ lokasi.latitude }}, {{ lokasi.longitude }}, {{ lokasi.radius_meter }})">
+                  data-pk="{{ lokasi.pk }}"
+                  data-nama="{{ lokasi.nama }}"
+                  data-lat="{{ lokasi.latitude }}"
+                  data-lon="{{ lokasi.longitude }}"
+                  data-radius="{{ lokasi.radius_meter }}"
+                  onclick="previewMap(this)">
             🗺 Peta
           </button>
           <button class="action-btn toggle-btn"
                   data-pk="{{ lokasi.pk }}"
+                  data-url="{% url 'supervisor_lokasi_toggle' lokasi.pk %}"
                   data-active="{{ lokasi.is_active|yesno:'true,false' }}">
             {% if lokasi.is_active %}⏸ Nonaktifkan{% else %}▶ Aktifkan{% endif %}
           </button>
           <a href="{% url 'supervisor_lokasi_edit' lokasi.pk %}" class="action-btn">✏️ Edit</a>
-          <button class="action-btn danger hapus-btn" data-pk="{{ lokasi.pk }}" data-nama="{{ lokasi.nama }}">
+          <button class="action-btn danger hapus-btn"
+                  data-pk="{{ lokasi.pk }}"
+                  data-url="{% url 'supervisor_lokasi_hapus' lokasi.pk %}"
+                  data-nama="{{ lokasi.nama }}">
             🗑 Hapus
           </button>
         </div>
@@ -127,12 +150,11 @@
 
 </div>
 
-
 <!-- Modal: Preview Peta -->
-<div class="modal fade" id="modalPeta" tabindex="-1">
+<div class="modal fade" id="modalPeta" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content"
-         style="background:rgba(12,17,32,0.92);border:1px solid rgba(255,255,255,0.12);border-radius:var(--radius-lg);color:#fff">
+         style="background:rgba(12,17,32,0.95);border:1px solid rgba(255,255,255,0.12);border-radius:var(--radius-lg);color:#fff">
       <div class="modal-header" style="border-color:rgba(255,255,255,0.10)">
         <h6 class="modal-title" id="petaTitle" style="color:#fff">Preview Lokasi</h6>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
@@ -145,10 +167,10 @@
 </div>
 
 <!-- Modal: Konfirmasi Hapus -->
-<div class="modal fade" id="modalHapus" tabindex="-1">
+<div class="modal fade" id="modalHapus" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content"
-         style="background:rgba(12,17,32,0.92);border:1px solid rgba(239,68,68,0.25);border-radius:var(--radius-lg);color:#fff">
+         style="background:rgba(12,17,32,0.95);border:1px solid rgba(239,68,68,0.25);border-radius:var(--radius-lg);color:#fff">
       <div class="modal-header" style="border-color:rgba(255,255,255,0.10)">
         <h6 class="modal-title" style="color:#fff">🗑 Hapus Lokasi</h6>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
@@ -171,11 +193,10 @@
     </div>
   </div>
 </div>
+
 {% endblock %}
 
 {% block extra_js %}
-<!-- Leaflet untuk preview peta -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -185,11 +206,16 @@ document.addEventListener('DOMContentLoaded', function () {
   let map = null;
 
   // ── Preview Peta ─────────────────────────────
-  window.previewMap = function(pk, nama, lat, lon, radius) {
+  window.previewMap = function(btn) {
+    const pk     = btn.dataset.pk;
+    const nama   = btn.dataset.nama;
+    const lat    = parseFloat(btn.dataset.lat);
+    const lon    = parseFloat(btn.dataset.lon);
+    const radius = parseInt(btn.dataset.radius);
+
     document.getElementById('petaTitle').textContent = `📍 ${nama} (±${radius}m)`;
     modalPeta.show();
 
-    // Init map setelah modal tampil (butuh delay agar container terrender)
     setTimeout(() => {
       if (map) { map.remove(); map = null; }
 
@@ -198,12 +224,10 @@ document.addEventListener('DOMContentLoaded', function () {
         attribution: '© OpenStreetMap',
       }).addTo(map);
 
-      // Marker titik pusat
       L.marker([lat, lon]).addTo(map)
         .bindPopup(`<b>${nama}</b><br>Radius: ${radius}m`)
         .openPopup();
 
-      // Lingkaran radius
       L.circle([lat, lon], {
         radius     : radius,
         color      : '#a5b4fc',
@@ -219,8 +243,10 @@ document.addEventListener('DOMContentLoaded', function () {
   // ── Toggle Aktif ─────────────────────────────
   document.querySelectorAll('.toggle-btn').forEach(btn => {
     btn.addEventListener('click', function () {
-      const pk = this.dataset.pk;
-      fetch(`/supervisor/lokasi/${pk}/toggle/`, {
+      const pk  = this.dataset.pk;
+      const url = this.dataset.url;
+
+      fetch(url, {
         method : 'POST',
         headers: {
           'X-Requested-With': 'XMLHttpRequest',
@@ -231,7 +257,7 @@ document.addEventListener('DOMContentLoaded', function () {
       .then(data => {
         if (!data.ok) return;
 
-        const card   = document.getElementById(`card-${pk}`);
+        const card     = document.getElementById(`card-${pk}`);
         const badgeOn  = document.getElementById(`badge-${pk}`);
         const badgeOff = document.getElementById(`badge-off-${pk}`);
 
@@ -239,29 +265,31 @@ document.addEventListener('DOMContentLoaded', function () {
         badgeOn.style.display  = data.is_active ? '' : 'none';
         badgeOff.style.display = data.is_active ? 'none' : '';
 
-        this.textContent = data.is_active ? '⏸ Nonaktifkan' : '▶ Aktifkan';
+        this.textContent    = data.is_active ? '⏸ Nonaktifkan' : '▶ Aktifkan';
         this.dataset.active = data.is_active ? 'true' : 'false';
       });
     });
   });
 
   // ── Hapus ────────────────────────────────────
-  let targetPk = null;
+  let targetUrl = null;
+  let targetPk  = null;
 
   document.querySelectorAll('.hapus-btn').forEach(btn => {
     btn.addEventListener('click', function () {
-      targetPk = this.dataset.pk;
+      targetPk  = this.dataset.pk;
+      targetUrl = this.dataset.url;
       document.getElementById('hapusNama').textContent = this.dataset.nama;
       modalHapus.show();
     });
   });
 
   document.getElementById('hapusConfirmBtn').addEventListener('click', function () {
-    if (!targetPk) return;
-    this.disabled = true;
+    if (!targetUrl) return;
+    this.disabled    = true;
     this.textContent = 'Menghapus…';
 
-    fetch(`/supervisor/lokasi/${targetPk}/hapus/`, {
+    fetch(targetUrl, {
       method : 'POST',
       headers: {
         'X-Requested-With': 'XMLHttpRequest',
@@ -279,9 +307,10 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     })
     .finally(() => {
-      this.disabled = false;
+      this.disabled    = false;
       this.textContent = 'Ya, Hapus';
-      targetPk = null;
+      targetUrl = null;
+      targetPk  = null;
     });
   });
 

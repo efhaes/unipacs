@@ -47,10 +47,14 @@ from outsourcing.views.customer import (
     laporan_list as customer_laporan_list,
     laporan_detail as customer_laporan_detail,
     item_approve as customer_item_approve,
+    absensi_list,
+    absensi_staff_detail,
     item_approval_list as customer_item_approval_list,
 )
+
 from outsourcing.views.reporting import generate_laporan_bulanan
 from outsourcing.views.supervisor.absensi import api_update_overtime_status, lokasi_edit
+
 urlpatterns = [
     # Auth: login, logout, dashboard redirect
     path('', login_view, name='login'),
@@ -141,13 +145,12 @@ urlpatterns = [
     path('supervisor/laporan/bulanan/<int:perusahaan_id>/<int:tahun>/<int:bulan>/<int:jenis_jasa_id>/download/<str:format>/',generate_laporan_bulanan, name='download_laporan_bulanan'),
     path('supervisor/absensi/<int:pk>/overtime-status/',api_update_overtime_status,name='supervisor_absensi_overtime_status',),
     path('supervisor/absensi/izin/<int:pk>/review/', izin_review, name='supervisor_izin_review'),
-    path('lokasi/',                lokasi_list,         name='supervisor_lokasi_list'),
-    path('lokasi/tambah/',         lokasi_tambah,       name='supervisor_lokasi_tambah'),
-    path('lokasi/<int:pk>/edit/',  lokasi_edit,         name='supervisor_lokasi_edit'),
-    path('lokasi/<int:pk>/hapus/', lokasi_hapus,        name='supervisor_lokasi_hapus'),
-    path('lokasi/<int:pk>/toggle/',lokasi_toggle_aktif, name='supervisor_lokasi_toggle'),
-    path('lokasi/<int:pk>/json/',  lokasi_detail_json,  name='supervisor_lokasi_json'),
-
+    path('supervisor/lokasi/',                lokasi_list,         name='supervisor_lokasi_list'),
+    path('supervisor/lokasi/tambah/',         lokasi_tambah,       name='supervisor_lokasi_tambah'),
+    path('supervisor/lokasi/<int:pk>/edit/',  lokasi_edit,         name='supervisor_lokasi_edit'),
+    path('supervisor/lokasi/<int:pk>/hapus/', lokasi_hapus,        name='supervisor_lokasi_hapus'),
+    path('supervisor/lokasi/<int:pk>/toggle/',lokasi_toggle_aktif, name='supervisor_lokasi_toggle'),
+    path('supervisor/lokasi/<int:pk>/json/',  lokasi_detail_json,  name='supervisor_lokasi_json'),
 
     # Staff
     path('staff/', staff_dashboard, name='staff_dashboard'),
@@ -171,4 +174,6 @@ urlpatterns = [
     path('customer/laporan/', customer_laporan_list, name='customer_laporan_list'),
     path('customer/laporan/<int:pk>/', customer_laporan_detail, name='customer_laporan_detail'),
     path('customer/item/<int:pk>/approve/', customer_item_approve, name='customer_item_approve'),  # ← tambah ini
+    path('customer/absensi/',absensi_list,name='customer_absensi_list'),
+    path('customer/absensi/staff/<int:staff_pk>/',absensi_staff_detail,name='customer_absensi_staff_detail'),
 ]

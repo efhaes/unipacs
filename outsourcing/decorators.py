@@ -2,7 +2,7 @@ from functools import wraps
 from django.shortcuts import redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-
+from .models import User
 
 # ============================================================
 # BASE DECORATOR
@@ -70,18 +70,13 @@ def kepala_supervisor_required(view_func):
 from .models import SupervisorPerusahaan
 
 def supervisor_or_kepala_required(view_func):
-    """
-    Supervisor akses halaman sendiri.
-    Kepala Supervisor bisa akses halaman supervisor mana saja yang di bawahnya.
-    supervisor yang sedang 'diwakili' disimpan di request.supervisor_context
-    """
     @wraps(view_func)
     @login_required(login_url='login')
     def wrapped_view(request, *args, **kwargs):
         user = request.user
 
         if user.role == 'supervisor':
-            request.supervisor_context = user  # supervisor = diri sendiri
+            request.supervisor_context = user
             return view_func(request, *args, **kwargs)
 
         if user.role == 'kepala_supervisor':
@@ -101,8 +96,14 @@ def supervisor_or_kepala_required(view_func):
                 request.session.pop('acting_as_supervisor_id', None)
                 return redirect('kepala_pilih_supervisor')
 
-            from .models import User as UserModel
-            request.supervisor_context = UserModel.objects.get(pk=supervisor_id)
+            try:
+                request.supervisor_context = User.objects.get(pk=supervisor_id)
+            except User.DoesNotExist:
+                # supervisor_id di session tidak valid (sudah dihapus, dll)
+                messages.error(request, 'Supervisor tidak ditemukan.')
+                request.session.pop('acting_as_supervisor_id', None)
+                return redirect('kepala_pilih_supervisor')
+
             return view_func(request, *args, **kwargs)
 
         messages.error(request, 'Anda tidak memiliki akses.')

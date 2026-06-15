@@ -68,6 +68,7 @@ def laporan_detail(request, pk):
     total_selesai = item_list.filter(status='selesai').count()
     total_progress = item_list.filter(status='on_progress').count()
     total_terjadwal = item_list.filter(status='terjadwal').count()
+    total_menunggu_approval = item_list.filter(status='menunggu_approval').count()
 
     context = {
         'laporan'         : laporan,
@@ -76,6 +77,7 @@ def laporan_detail(request, pk):
         'total_selesai'   : total_selesai,
         'total_progress'  : total_progress,
         'total_terjadwal' : total_terjadwal,
+        'total_menunggu_approval': total_menunggu_approval,
         'page_title'      : f'Detail Laporan — {laporan.nama_laporan}',
     }
     return render(request, 'admin/laporan/detail.html', context)

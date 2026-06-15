@@ -71,6 +71,18 @@
           <div class="label">Total</div>
         </div>
         <div class="summary-item">
+          <div class="number terjadwal">{{ total_terjadwal }}</div>
+          <div class="label">Terjadwal</div>
+        </div>
+        <div class="summary-item">
+          <div class="number progress">{{ total_progress }}</div>
+          <div class="label">On Progress</div>
+        </div>
+        <div class="summary-item">
+          <div class="number menunggu">{{ total_menunggu_approval }}</div>
+          <div class="label">Menunggu Approval</div>
+        </div>
+        <div class="summary-item">
           <div class="number selesai">{{ total_selesai }}</div>
           <div class="label">Selesai</div>
         </div>
@@ -167,6 +179,8 @@
                         <span class="item-status ist-terjadwal">Terjadwal</span>
                     {% elif item.status == 'on_progress' %}
                         <span class="item-status ist-progress">On Progress</span>
+                    {% elif item.status == 'menunggu_approval' %}
+                        <span class="item-status ist-waiting">Menunggu Approval</span>
                     {% elif item.status == 'selesai' %}
                         <span class="item-status ist-selesai">Selesai</span>
                     {% endif %}

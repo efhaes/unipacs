@@ -68,17 +68,17 @@ def get_supervisor_list(user):
             kepala_supervisor=user,
             is_active=True,
         ).values_list('supervisor_id', flat=True)
-        
+
         # Tambahkan supervisor yang belum memiliki penugasan sama sekali (newly created)
         all_supervisor_ids = SupervisorPerusahaan.objects.values_list('supervisor_id', flat=True)
         unassigned_supervisors = User.objects.filter(
             role='supervisor',
             is_active=True
         ).exclude(id__in=all_supervisor_ids).values_list('id', flat=True)
-        
+
         # Gabungkan kedua set
         all_ids = set(supervisor_ids) | set(unassigned_supervisors)
-        
+
         return User.objects.filter(id__in=all_ids, is_active=True)
 
     elif user.role == 'supervisor':
@@ -101,7 +101,7 @@ def get_staff_list(user):
     SupervisorPerusahaan = m['SupervisorPerusahaan']
 
     if user.role == 'admin':
-        return User.objects.filter(role='staff',is_active=True)
+        return User.objects.filter(role='staff', is_active=True)
 
     elif user.role == 'kepala_supervisor':
         supervisor_ids = SupervisorPerusahaan.objects.filter(
@@ -112,14 +112,14 @@ def get_staff_list(user):
             supervisor_id__in=supervisor_ids,
             is_active=True,
         ).values_list('staff_id', flat=True)
-        return User.objects.filter(id__in=staff_ids,is_active=True)
+        return User.objects.filter(id__in=staff_ids, is_active=True)
 
     elif user.role == 'supervisor':
         staff_ids = StaffSupervisor.objects.filter(
             supervisor=user,
             is_active=True,
         ).values_list('staff_id', flat=True)
-        return User.objects.filter(id__in=staff_ids,is_active=True)
+        return User.objects.filter(id__in=staff_ids, is_active=True)
 
     elif user.role == 'staff':
         return User.objects.filter(id=user.id)
@@ -147,17 +147,17 @@ def get_perusahaan_list(user):
             kepala_supervisor=user,
             is_active=True,
         ).values_list('perusahaan_id', flat=True)
-        return Perusahaan.objects.filter(id__in=perusahaan_ids,is_active=True)
+        return Perusahaan.objects.filter(id__in=perusahaan_ids, is_active=True)
 
     elif user.role == 'supervisor':
         perusahaan_ids = SupervisorPerusahaan.objects.filter(
             supervisor=user,
             is_active=True,
         ).values_list('perusahaan_id', flat=True)
-        return Perusahaan.objects.filter(id__in=perusahaan_ids,is_active=True)
+        return Perusahaan.objects.filter(id__in=perusahaan_ids, is_active=True)
 
     elif user.role == 'customer':
-        return Perusahaan.objects.filter(customer=user,is_active=True)
+        return Perusahaan.objects.filter(customer=user, is_active=True)
 
     return Perusahaan.objects.none()
 
@@ -169,7 +169,9 @@ def get_laporan_list(user):
     - Kepala Spv    : laporan dari supervisor yang di bawah dia
     - Supervisor    : laporan yang dia buat
     - Staff         : laporan yang berisi item kegiatan milik dia
-    - Customer      : laporan dari perusahaan dia, status dikirim_customer
+    - Customer      : semua laporan dari perusahaan dia (semua status —
+                       customer bisa lihat & approve item dari laporan
+                       draft maupun yang sudah selesai)
     """
     m = get_models()
     LaporanKegiatan = m['LaporanKegiatan']
@@ -195,10 +197,7 @@ def get_laporan_list(user):
         return LaporanKegiatan.objects.filter(id__in=laporan_ids)
 
     elif user.role == 'customer':
-        return LaporanKegiatan.objects.filter(
-            perusahaan__customer=user,
-            status='dikirim_customer',
-        )
+        return LaporanKegiatan.objects.filter(perusahaan__customer=user)
 
     return LaporanKegiatan.objects.none()
 
@@ -210,7 +209,8 @@ def get_item_kegiatan_list(user):
     - Kepala Spv    : item dari laporan supervisor di bawah dia
     - Supervisor    : item dari laporan yang dia buat
     - Staff         : item yang ditugaskan ke dia
-    - Customer      : item dari laporan perusahaan dia (status dikirim)
+    - Customer      : semua item dari laporan perusahaan dia (semua status —
+                       diperlukan agar customer bisa approve item satu-satu)
     """
     m = get_models()
     ItemKegiatan = m['ItemKegiatan']
@@ -222,7 +222,7 @@ def get_item_kegiatan_list(user):
     elif user.role == 'kepala_supervisor':
         supervisor_ids = SupervisorPerusahaan.objects.filter(
             kepala_supervisor=user,
-            is_actif=True,
+            is_active=True,
         ).values_list('supervisor_id', flat=True)
         return ItemKegiatan.objects.filter(laporan__supervisor_id__in=supervisor_ids)
 
@@ -233,10 +233,7 @@ def get_item_kegiatan_list(user):
         return ItemKegiatan.objects.filter(staff=user)
 
     elif user.role == 'customer':
-        return ItemKegiatan.objects.filter(
-            laporan__perusahaan__customer=user,
-            laporan__status='dikirim_customer',
-        )
+        return ItemKegiatan.objects.filter(laporan__perusahaan__customer=user)
 
     return ItemKegiatan.objects.none()
 
@@ -244,7 +241,6 @@ def get_item_kegiatan_list(user):
 # ============================================================
 # utils.py  —  get_dashboard_stats
 # ============================================================
-
 import json
 from calendar import monthrange
 from datetime import date, timedelta
@@ -340,8 +336,8 @@ def get_dashboard_stats(user, bulan=None, tahun=None):
     ).count()
 
     today_laporan_aktif = LaporanKegiatan.objects.filter(
-    tanggal_laporan__lte=today,
-    status=StatusLaporan.DRAFT,  # draft = masih berjalan
+        tanggal_laporan__lte=today,
+        status=StatusLaporan.DRAFT,  # draft = masih berjalan
     ).count()
 
     # ════════════════════════════════════════════════════
@@ -368,18 +364,13 @@ def get_dashboard_stats(user, bulan=None, tahun=None):
     # ════════════════════════════════════════════════════
     laporan_qs      = LaporanKegiatan.objects.filter(tanggal_laporan__range=(start, end))
     total_laporan   = laporan_qs.count()
-    laporan_selesai = laporan_qs.filter(
-        status__in=[StatusLaporan.SELESAI, StatusLaporan.DIKIRIM_CUSTOMER]
-    ).count()
-    laporan_dikirim = laporan_qs.filter(status=StatusLaporan.DIKIRIM_CUSTOMER).count()
+    laporan_selesai = laporan_qs.filter(status=StatusLaporan.SELESAI).count()
     completion_rate = _safe_pct(laporan_selesai, total_laporan)
 
     # Prev period
     laporan_prev      = LaporanKegiatan.objects.filter(tanggal_laporan__range=(prev_start, prev_end))
     prev_laporan      = laporan_prev.count()
-    prev_selesai      = laporan_prev.filter(
-        status__in=[StatusLaporan.SELESAI, StatusLaporan.DIKIRIM_CUSTOMER]
-    ).count()
+    prev_selesai      = laporan_prev.filter(status=StatusLaporan.SELESAI).count()
     prev_completion   = _safe_pct(prev_selesai, prev_laporan)
 
     delta_laporan     = total_laporan - prev_laporan
@@ -465,7 +456,7 @@ def get_dashboard_stats(user, bulan=None, tahun=None):
         LaporanKegiatan.objects
         .filter(
             tanggal_laporan__range=(start, end),
-            status__in=[StatusLaporan.SELESAI, StatusLaporan.DIKIRIM_CUSTOMER],
+            status=StatusLaporan.SELESAI,
         )
         .values('supervisor__id', 'supervisor__nama_lengkap', 'supervisor__username',
                 'perusahaan__nama_perusahaan')
@@ -490,9 +481,7 @@ def get_dashboard_stats(user, bulan=None, tahun=None):
         .values('perusahaan__id', 'perusahaan__nama_perusahaan')
         .annotate(
             total=Count('id'),
-            selesai=Count('id', filter=Q(
-                status__in=[StatusLaporan.SELESAI, StatusLaporan.DIKIRIM_CUSTOMER]
-            )),
+            selesai=Count('id', filter=Q(status=StatusLaporan.SELESAI)),
         )
         .order_by('perusahaan__nama_perusahaan')
     )
@@ -510,17 +499,13 @@ def get_dashboard_stats(user, bulan=None, tahun=None):
     bulan_labels_list = []
     chart_total   = []
     chart_selesai = []
-    chart_dikirim = []
 
     for m in range(1, 13):
         ms, me = _date_range(tahun, m)
         qs = LaporanKegiatan.objects.filter(tanggal_laporan__range=(ms, me))
         bulan_labels_list.append(BULAN_LABEL[m])
         chart_total.append(qs.count())
-        chart_selesai.append(qs.filter(
-            status__in=[StatusLaporan.SELESAI, StatusLaporan.DIKIRIM_CUSTOMER]
-        ).count())
-        chart_dikirim.append(qs.filter(status=StatusLaporan.DIKIRIM_CUSTOMER).count())
+        chart_selesai.append(qs.filter(status=StatusLaporan.SELESAI).count())
 
     return {
         # Meta
@@ -552,7 +537,6 @@ def get_dashboard_stats(user, bulan=None, tahun=None):
         # KPI periode
         'total_laporan'        : total_laporan,
         'laporan_selesai'      : laporan_selesai,
-        'laporan_dikirim'      : laporan_dikirim,
         'completion_rate'      : completion_rate,
         'delta_laporan'        : delta_laporan,
         'delta_completion'     : delta_completion,
@@ -593,8 +577,9 @@ def get_dashboard_stats(user, bulan=None, tahun=None):
         'bulan_labels_json'    : json.dumps(bulan_labels_list),
         'chart_total_json'     : json.dumps(chart_total),
         'chart_selesai_json'   : json.dumps(chart_selesai),
-        'chart_dikirim_json'   : json.dumps(chart_dikirim),
     }
+
+
 # ============================================================
 # HELPER VALIDASI AKSES OBJECT
 # ============================================================
@@ -625,10 +610,10 @@ def user_can_access_laporan(user, laporan):
         ).exists()
 
     elif user.role == 'customer':
-        return (
-            laporan.perusahaan.customer == user
-            and laporan.status == 'dikirim_customer'
-        )
+        # Customer bisa akses laporan dari perusahaannya sendiri,
+        # tidak peduli status (draft maupun selesai) — diperlukan
+        # agar customer bisa melihat & approve item kapan saja.
+        return laporan.perusahaan.customer == user
 
     return False
 
@@ -656,9 +641,7 @@ def user_can_access_item(user, item):
         return item.staff == user
 
     elif user.role == 'customer':
-        return (
-            item.laporan.perusahaan.customer == user
-            and item.laporan.status == 'dikirim_customer'
-        )
+        # Sama seperti laporan — tidak terikat status.
+        return item.laporan.perusahaan.customer == user
 
     return False

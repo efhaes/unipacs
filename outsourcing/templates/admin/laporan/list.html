@@ -48,10 +48,11 @@
                     <td class="text-muted small" data-label="Supervisor">{{ l.supervisor.nama_lengkap }}</td>
                     <td class="text-muted small" data-label="Tanggal">{{ l.tanggal_laporan }}</td>
                     <td data-label="Status">
-                        {% if l.status == 'draft' %}<span class="badge badge-draft">Draft</span>
-                        {% elif l.status == 'aktif' %}<span class="badge badge-aktif">Aktif</span>
-                        {% elif l.status == 'selesai' %}<span class="badge badge-selesai">Selesai</span>
-                        {% else %}<span class="badge badge-dikirim">Dikirim</span>{% endif %}
+                        {% if l.status == 'draft' %}
+                            <span class="badge badge-draft">Draft</span>
+                        {% elif l.status == 'selesai' %}
+                            <span class="badge badge-selesai">Selesai</span>
+                        {% endif %}
                     </td>
                     <td data-label="Aksi">
                         <a href="{% url 'admin_laporan_detail' l.pk %}" class="btn btn-sm btn-outline-primary">

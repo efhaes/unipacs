@@ -121,9 +121,16 @@ def laporan_detail(request, pk):
         if item.status in counts:
             counts[item.status] += 1
 
+    # Untuk customer, menunggu_approval hanya yang insidental
+    menunggu_approval_insidental = sum(
+        1 for item in item_list_evaluated
+        if item.status == 'menunggu_approval' and item.is_insidental
+    )
+
     stats = {
         'total'        : len(item_list_evaluated),
         **counts,
+        'menunggu_approval': menunggu_approval_insidental,
         'semua_selesai': (
             counts['terjadwal']         == 0 and
             counts['on_progress']       == 0 and
@@ -158,6 +165,7 @@ def item_approval_list(request):
         .filter(
             status='menunggu_approval',
             laporan__perusahaan=perusahaan,
+            is_insidental=True,  # Customer hanya approve item insidental
         )
         .select_related('laporan__area', 'laporan__jenis_jasa', 'sub_area')
         .prefetch_related('staff')
@@ -188,6 +196,7 @@ def item_approve(request, pk):
         pk=pk,
         status='menunggu_approval',
         laporan__perusahaan=perusahaan,
+        is_insidental=True,  # Customer hanya bisa approve item insidental
     )
 
     if request.method == 'POST':

@@ -104,3 +104,31 @@ def item_delete(request, pk):
         'page_title': f'Hapus Item — {item.nama_item}',
     }
     return render(request, 'supervisor/item/confirm_delete.html', context)
+
+
+@supervisor_or_kepala_required
+def item_approve(request, pk):
+    """
+    Supervisor menyetujui satu item kegiatan NON-insidental.
+    Item insidental di-approve oleh customer, bukan supervisor.
+    """
+    supervisor = _get_supervisor(request)
+    item = get_object_or_404(
+        ItemKegiatan,
+        pk=pk,
+        status='menunggu_approval',
+        laporan__supervisor=supervisor,
+        is_insidental=False,
+    )
+
+    if request.method == 'POST':
+        item.status = 'selesai'
+        item.save(update_fields=['status'])
+
+        messages.success(
+            request,
+            f'✓ Pekerjaan "{item.nama_item}" disetujui dan dinyatakan Selesai.',
+        )
+        return redirect('supervisor_laporan_detail', pk=item.laporan_id)
+
+    return redirect('supervisor_laporan_detail', pk=item.laporan_id)

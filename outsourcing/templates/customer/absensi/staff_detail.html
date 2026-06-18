@@ -1,0 +1,358 @@
+{% extends 'customer/base_customer.html' %}
+
+{% block extra_css %}
+<style>
+/* ── Page Header ── */
+.page-header {
+    display: flex; align-items: center; gap: 1rem;
+    margin-bottom: 1.75rem; flex-wrap: wrap;
+}
+.btn-back {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: 10px; font-size: 13px; font-weight: 600;
+    text-decoration: none; background: transparent;
+    border: 1px solid var(--clr-border); color: var(--clr-text-muted);
+    transition: all 0.15s; white-space: nowrap;
+}
+.btn-back:hover { background: rgba(255,255,255,0.05); color: var(--clr-text-secondary); }
+.page-title {
+    font-size: 1.4rem; font-weight: 700;
+    color: var(--clr-text-primary); letter-spacing: -0.03em; margin: 0;
+}
+.page-subtitle { font-size: 12px; color: var(--clr-text-muted); margin-top: 3px; }
+
+/* ── Staff Hero Card ── */
+.staff-hero {
+    background: transparent;
+    border: 1px solid var(--clr-border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+}
+.hero-avatar {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: rgba(99,102,241,0.15);
+    border: 2px solid rgba(99,102,241,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 800; color: #a5b4fc;
+    text-transform: uppercase; flex-shrink: 0;
+}
+.hero-info { flex: 1; min-width: 0; }
+.hero-name { font-size: 1.2rem; font-weight: 800; color: var(--clr-text-primary); }
+.hero-meta {
+    font-size: 12px; color: var(--clr-text-muted);
+    margin-top: 4px; display: flex; flex-wrap: wrap; gap: 10px;
+}
+.hero-meta span { display: flex; align-items: center; gap: 4px; }
+.hero-stats { display: flex; gap: 1rem; flex-wrap: wrap; }
+.hero-stat {
+    text-align: center; padding: 0.5rem 0.85rem;
+    border-radius: 12px; border: 1px solid var(--clr-border);
+    background: rgba(255,255,255,0.02);
+    min-width: 64px;
+}
+.hero-stat-val {
+    font-size: 1.3rem; font-weight: 800; letter-spacing: -0.04em;
+    line-height: 1; color: var(--clr-text-primary);
+}
+.hero-stat-val.green  { color: #34d399; }
+.hero-stat-val.red    { color: #f87171; }
+.hero-stat-val.yellow { color: #fbbf24; }
+.hero-stat-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--clr-text-muted); margin-top: 3px;
+}
+
+/* ── Month Navigation ── */
+.month-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap;
+}
+.month-title {
+    font-size: 1rem; font-weight: 700; color: var(--clr-text-primary);
+    letter-spacing: -0.02em;
+}
+.month-controls { display: flex; gap: 6px; }
+.btn-month {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 14px; border-radius: 9px; font-size: 12px; font-weight: 600;
+    text-decoration: none; border: 1px solid var(--clr-border);
+    color: var(--clr-text-muted); background: transparent; transition: all 0.15s;
+}
+.btn-month:hover { background: rgba(255,255,255,0.05); color: var(--clr-text-secondary); }
+.btn-month.active-month {
+    background: rgba(99,102,241,0.12); border-color: rgba(99,102,241,0.3); color: #a5b4fc;
+}
+
+/* ── Section Label ── */
+.section-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.07em; color: var(--clr-text-muted);
+    margin-bottom: 0.75rem;
+}
+
+/* ── Day Card Grid ── */
+.day-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+    gap: 8px;
+    margin-bottom: 1.5rem;
+}
+
+/* ── Day Card ── */
+.day-card {
+    border: 1px solid var(--clr-border);
+    border-radius: 14px;
+    padding: 12px 12px 10px;
+    background: rgba(255,255,255,0.02);
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    transition: background 0.15s, border-color 0.15s;
+}
+.day-card:hover { background: rgba(99,102,241,0.05); border-color: rgba(99,102,241,0.2); }
+.day-card.is-today {
+    border-color: rgba(99,102,241,0.4);
+    background: rgba(99,102,241,0.06);
+}
+.day-card.is-libur { opacity: 0.45; }
+
+.day-header {
+    display: flex; align-items: flex-start;
+    justify-content: space-between; gap: 4px;
+}
+.day-num {
+    font-size: 15px; font-weight: 800; color: var(--clr-text-primary); line-height: 1;
+}
+.day-name {
+    font-size: 10px; color: var(--clr-text-muted); margin-top: 2px;
+}
+
+/* ── Status Badge ── */
+.absen-status {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 10.5px; font-weight: 700;
+    padding: 2px 7px; border-radius: 20px; white-space: nowrap; flex-shrink: 0;
+}
+.status-hadir     { background: rgba(52,211,153,0.12); color: #34d399; border: 1px solid rgba(52,211,153,0.25); }
+.status-pulang    { background: rgba(99,102,241,0.12); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.25); }
+.status-terlambat { background: rgba(251,191,36,0.12);  color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
+.status-overtime  { background: rgba(251,146,60,0.12);  color: #fb923c; border: 1px solid rgba(251,146,60,0.25); }
+.status-belum     { background: rgba(255,255,255,0.05); color: var(--clr-text-muted); border: 1px solid var(--clr-border); }
+.status-izin      { background: rgba(251,191,36,0.12);  color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
+.status-cuti      { background: rgba(167,139,250,0.12); color: #c4b5fd; border: 1px solid rgba(167,139,250,0.25); }
+.status-alpa      { background: rgba(248,113,113,0.12); color: #f87171; border: 1px solid rgba(248,113,113,0.25); }
+.status-dokter    { background: rgba(56,189,248,0.12);  color: #7dd3fc; border: 1px solid rgba(56,189,248,0.25); }
+.status-libur     { background: rgba(255,255,255,0.05); color: var(--clr-text-muted); border: 1px solid var(--clr-border); }
+
+/* ── Time Chips ── */
+.time-row { display: flex; gap: 5px; flex-wrap: wrap; }
+.time-chip {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 11px; font-weight: 600;
+    padding: 2px 7px; border-radius: 7px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--clr-border);
+    color: var(--clr-text-secondary);
+}
+.time-chip.masuk  { color: #34d399; border-color: rgba(52,211,153,0.25); background: rgba(52,211,153,0.06); }
+.time-chip.pulang { color: #f87171; border-color: rgba(248,113,113,0.25); background: rgba(248,113,113,0.06); }
+
+/* ── Duration ── */
+.durasi-chip {
+    font-size: 11px; color: var(--clr-text-muted); font-weight: 600;
+}
+
+/* ── Keterangan ── */
+.ket-text {
+    font-size: 10.5px; color: var(--clr-text-muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+    .staff-hero { padding: 1rem; gap: 0.85rem; }
+    .hero-avatar { width: 44px; height: 44px; font-size: 14px; }
+    .hero-name { font-size: 1rem; }
+    .page-title { font-size: 1.2rem; }
+    .day-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px; }
+}
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+<!-- ── HEADER ── -->
+<div class="page-header">
+    <a href="{% url 'customer_absensi_list' %}" class="btn-back">
+        <i class="bi bi-arrow-left"></i> Kembali
+    </a>
+    <div>
+        <h1 class="page-title">{{ staff.nama_lengkap }}</h1>
+        <div class="page-subtitle">Riwayat absensi bulanan</div>
+    </div>
+</div>
+
+<!-- ── STAFF HERO ── -->
+<div class="staff-hero">
+    <div class="hero-avatar">{{ staff.nama_lengkap|slice:":2" }}</div>
+    <div class="hero-info">
+        <div class="hero-name">{{ staff.nama_lengkap }}</div>
+        <div class="hero-meta">
+            {% if staff.nik %}
+                <span><i class="bi bi-person-badge"></i> NIK {{ staff.nik }}</span>
+            {% endif %}
+            {% if staff.telepon %}
+                <span><i class="bi bi-telephone"></i> {{ staff.telepon }}</span>
+            {% endif %}
+            {% if supervisor_aktif %}
+                <span><i class="bi bi-person-check"></i> Supervisor: {{ supervisor_aktif.nama_lengkap }}</span>
+            {% endif %}
+        </div>
+    </div>
+    <div class="hero-stats">
+        <div class="hero-stat">
+            <div class="hero-stat-val green">{{ monthly_stats.hadir }}</div>
+            <div class="hero-stat-label">Hadir</div>
+        </div>
+        <div class="hero-stat">
+            <div class="hero-stat-val red">{{ monthly_stats.alpa }}</div>
+            <div class="hero-stat-label">Alpa</div>
+        </div>
+        <div class="hero-stat">
+            <div class="hero-stat-val yellow">{{ monthly_stats.izin }}</div>
+            <div class="hero-stat-label">Izin/Cuti</div>
+        </div>
+        <div class="hero-stat">
+            <div class="hero-stat-val">{{ monthly_stats.total_kerja_str }}</div>
+            <div class="hero-stat-label">Total Jam</div>
+        </div>
+    </div>
+</div>
+
+<!-- ── MONTH NAVIGATION ── -->
+<div class="month-nav">
+    <div class="month-title">
+        <i class="bi bi-calendar3" style="margin-right:6px;opacity:0.6;"></i>
+        {{ bulan_display }}
+    </div>
+    <div class="month-controls">
+        <a href="?bulan={{ prev_bulan }}" class="btn-month">
+            <i class="bi bi-chevron-left"></i> Prev
+        </a>
+        {% if not is_current_month %}
+        <a href="?" class="btn-month active-month">Bulan Ini</a>
+        {% endif %}
+        {% if has_next_month %}
+        <a href="?bulan={{ next_bulan }}" class="btn-month">
+            Next <i class="bi bi-chevron-right"></i>
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ── SECTION LABEL ── -->
+<div class="section-label">
+    <i class="bi bi-grid-3x3-gap" style="margin-right:5px;"></i>
+    {{ total_hari_kerja }} hari kerja · {{ bulan_display }}
+</div>
+
+<!-- ── DAY CARD GRID ── -->
+<div class="day-grid">
+    {% for row in calendar_rows %}
+    <div class="day-card
+        {% if row.is_today %}is-today{% endif %}
+        {% if row.is_libur or row.is_weekend %}is-libur{% endif %}
+    ">
+
+        <!-- Header: tanggal + status -->
+        <div class="day-header">
+            <div>
+                <div class="day-num">{{ row.tanggal|date:"d" }}</div>
+                <div class="day-name">
+                    {{ row.tanggal|date:"D" }}
+                    {% if row.is_today %} · Hari ini{% endif %}
+                </div>
+            </div>
+
+            <!-- Status Badge -->
+            {% if row.is_libur %}
+                <span class="absen-status status-libur"><i class="bi bi-moon"></i> Libur</span>
+            {% elif row.is_weekend %}
+                <span class="absen-status status-libur"><i class="bi bi-moon"></i> Weekend</span>
+            {% elif row.is_future %}
+                <span class="absen-status status-belum" style="opacity:0.5;">—</span>
+            {% elif row.absensi %}
+                {% with s=row.absensi.status sh=row.absensi.status_harian %}
+                    {% if sh == 'I' %}
+                        <span class="absen-status status-izin"><i class="bi bi-file-text"></i> Izin</span>
+                    {% elif sh == 'L' %}
+                        <span class="absen-status status-cuti"><i class="bi bi-briefcase"></i> Cuti</span>
+                    {% elif sh == 'A' %}
+                        <span class="absen-status status-alpa"><i class="bi bi-x-circle"></i> Alpa</span>
+                    {% elif sh == 'DC' %}
+                        <span class="absen-status status-dokter"><i class="bi bi-heart-pulse"></i> Dokter</span>
+                    {% elif s == 'masuk' %}
+                        <span class="absen-status status-hadir"><i class="bi bi-check-circle"></i> Hadir</span>
+                    {% elif s == 'pulang' %}
+                        <span class="absen-status status-pulang"><i class="bi bi-box-arrow-right"></i> Pulang</span>
+                    {% elif s == 'terlambat' %}
+                        <span class="absen-status status-terlambat"><i class="bi bi-clock-history"></i> Telat</span>
+                    {% elif s == 'overtime' %}
+                        <span class="absen-status status-overtime"><i class="bi bi-moon-stars"></i> OT</span>
+                    {% else %}
+                        <span class="absen-status status-belum"><i class="bi bi-dash-circle"></i> Belum</span>
+                    {% endif %}
+                {% endwith %}
+            {% else %}
+                <span class="absen-status status-alpa"><i class="bi bi-x-circle"></i> Alpa</span>
+            {% endif %}
+        </div>
+
+        <!-- Jam masuk / pulang -->
+        {% if row.absensi and row.absensi.waktu_masuk or row.absensi and row.absensi.waktu_pulang %}
+        <div class="time-row">
+            {% if row.absensi.waktu_masuk %}
+            <span class="time-chip masuk">
+                <i class="bi bi-box-arrow-in-right"></i>
+                {{ row.absensi.waktu_masuk|time:"H:i" }}
+            </span>
+            {% endif %}
+            {% if row.absensi.waktu_pulang %}
+            <span class="time-chip pulang">
+                <i class="bi bi-box-arrow-right"></i>
+                {{ row.absensi.waktu_pulang|time:"H:i" }}
+            </span>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Durasi -->
+        {% if row.absensi and row.absensi.durasi_str %}
+        <div class="durasi-chip">
+            <i class="bi bi-stopwatch" style="margin-right:3px;opacity:0.6;"></i>
+            {{ row.absensi.durasi_str }}
+        </div>
+        {% endif %}
+
+        <!-- Keterangan -->
+        {% if row.libur_nama %}
+            <div class="ket-text">{{ row.libur_nama }}</div>
+        {% elif row.absensi and row.absensi.catatan %}
+            <div class="ket-text">{{ row.absensi.catatan|truncatechars:35 }}</div>
+        {% elif row.absensi and row.absensi.izin_pulang_awal %}
+            <div class="ket-text" style="color:#fbbf24;">Izin pulang awal</div>
+        {% elif row.absensi and row.absensi.is_overtime %}
+            <div class="ket-text" style="color:#fb923c;">Overtime</div>
+        {% endif %}
+
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}

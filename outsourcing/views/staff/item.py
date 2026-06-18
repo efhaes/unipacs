@@ -114,7 +114,9 @@ def _item_locked_message(item: ItemKegiatan) -> str | None:
 
     if item.status in LOCKED_STATUSES:
         if item.status == Status.MENUNGGU_APPROVAL:
-            return "Pekerjaan ini sedang menunggu approval customer dan tidak dapat diedit."
+            if item.is_insidental:
+                return "Pekerjaan ini sedang menunggu approval customer dan tidak dapat diedit."
+            return "Pekerjaan ini sedang menunggu approval supervisor dan tidak dapat diedit."
         return "Pekerjaan ini sudah selesai dan tidak dapat diedit."
 
     return None
@@ -254,17 +256,19 @@ def _handle_foto_after(request: HttpRequest, item: ItemKegiatan) -> HttpResponse
         "catatan_staff",
     ])
 
+    approver = "customer" if item.is_insidental else "supervisor"
+
     if overtime_menit > 0:
         selisih_td = timedelta(minutes=overtime_menit)
         messages.warning(
             request,
             f"✓ Foto disimpan. Pekerjaan selesai {_format_durasi(selisih_td)} "
-            f"lebih lambat dari jadwal. Menunggu approval customer.",
+            f"lebih lambat dari jadwal. Menunggu approval {approver}.",
         )
     else:
         messages.success(
             request,
-            "✓ Foto selesai disimpan. Pekerjaan menunggu approval dari customer.",
+            f"✓ Foto selesai disimpan. Pekerjaan menunggu approval dari {approver}.",
         )
 
     return redirect("staff_item_list")

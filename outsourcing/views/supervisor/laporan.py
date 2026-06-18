@@ -84,11 +84,13 @@ def laporan_detail(request, pk):
     item_list  = laporan.item_kegiatan.select_related('sub_area').prefetch_related('staff').order_by('tanggal', 'jam_mulai')
 
     stats = {
-        'total'      : item_list.count(),
-        'terjadwal'  : item_list.filter(status='terjadwal').count(),
-        'on_progress': item_list.filter(status='on_progress').count(),
-        'selesai'    : item_list.filter(status='selesai').count(),
-        'insidental' : item_list.filter(is_insidental=True).count(),
+        'total'             : item_list.count(),
+        'terjadwal'         : item_list.filter(status='terjadwal').count(),
+        'on_progress'       : item_list.filter(status='on_progress').count(),
+        'menunggu_approval' : item_list.filter(status='menunggu_approval').count(),
+        'menunggu_spv'      : item_list.filter(status='menunggu_approval', is_insidental=False).count(),
+        'selesai'           : item_list.filter(status='selesai').count(),
+        'insidental'        : item_list.filter(is_insidental=True).count(),
     }
 
     context = {

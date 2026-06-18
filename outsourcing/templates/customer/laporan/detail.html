@@ -262,8 +262,8 @@
                 </div>
             {% endif %}
 
-            <!-- ── Tombol Approve (hanya muncul saat menunggu_approval) ── -->
-            {% if item.status == 'menunggu_approval' %}
+            <!-- ── Tombol Approve (hanya untuk item insidental yang menunggu_approval) ── -->
+            {% if item.status == 'menunggu_approval' and item.is_insidental %}
             <div class="item-approve-wrap">
                 <div class="approve-hint">
                     <i class="bi bi-info-circle"></i>
@@ -275,6 +275,13 @@
                         data-item-name="{{ item.nama_item }}">
                     <i class="bi bi-check-circle-fill"></i> Setujui Pekerjaan
                 </button>
+            </div>
+            {% elif item.status == 'menunggu_approval' and not item.is_insidental %}
+            <div class="item-approve-wrap">
+                <div class="approve-hint" style="color:#94a3b8;">
+                    <i class="bi bi-shield-check"></i>
+                    Pekerjaan ini menunggu persetujuan dari Supervisor.
+                </div>
             </div>
             {% endif %}
 

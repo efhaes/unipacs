@@ -25,7 +25,7 @@ from outsourcing.views.supervisor import (
     dashboard_view as supervisor_dashboard,
     laporan_list, laporan_create, laporan_detail, laporan_edit, laporan_delete,
     laporan_selesai, laporan_toggle_aktif,
-    item_create, item_edit, item_delete,
+    item_create, item_edit, item_delete, item_approve as supervisor_item_approve,
     staff_list as spv_staff_list,   # ← ganti alias ini
     staff_create, staff_edit, staff_toggle_aktif, staff_delete,
     subarea_list, subarea_create, subarea_edit, subarea_delete,
@@ -121,6 +121,7 @@ urlpatterns = [
     path('supervisor/laporan/<int:pk>/toggle-aktif/', laporan_toggle_aktif, name='supervisor_laporan_toggle_aktif'),
     path('supervisor/item/<int:pk>/edit/', item_edit, name='supervisor_item_edit'),
     path('supervisor/item/<int:pk>/hapus/', item_delete, name='supervisor_item_delete'),
+    path('supervisor/item/<int:pk>/approve/', supervisor_item_approve, name='supervisor_item_approve'),
     path('supervisor/staff/', spv_staff_list, name='supervisor_staff_list'), 
     path('supervisor/staff/tambah/', staff_create, name='supervisor_staff_create'), # ← spv_staff_list    path('supervisor/staff/tambah/', staff_create, name='supervisor_staff_create'),
     path('supervisor/staff/<int:pk>/edit/', staff_edit, name='supervisor_staff_edit'),

@@ -20,6 +20,8 @@ from outsourcing.models import (
     StaffSupervisor,
     HariLiburNasional,
     User,
+    IzinStaff,
+    StatusIzinChoices,
 )
 
 
@@ -120,6 +122,16 @@ def absensi_list(request):
 
     absensi_map = {a.staff_id: a for a in absensi_qs}
 
+    # ── Bulk fetch izin untuk semua staff ───────────────────────────────────
+    izin_qs = IzinStaff.objects.filter(
+        staff_id__in=staff_ids_all,
+        tanggal_mulai__lte=tgl_tampil,
+        tanggal_selesai__gte=tgl_tampil,
+        status=StatusIzinChoices.APPROVED
+    ).select_related('staff')
+    
+    izin_map = {i.staff_id: i for i in izin_qs}
+
     # ── Hitung stats dan gabungkan data ─────────────────────────────────────
     total_staff  = 0
     count_hadir  = 0
@@ -136,7 +148,8 @@ def absensi_list(request):
 
         for staff in item['staff_list']:
             absensi = absensi_map.get(staff.pk)
-            staff_data.append({'staff': staff, 'absensi': absensi})
+            izin = izin_map.get(staff.pk)
+            staff_data.append({'staff': staff, 'absensi': absensi, 'izin': izin})
 
             total_staff += 1
             if absensi:
@@ -148,6 +161,8 @@ def absensi_list(request):
                     count_hadir += 1; sv_hadir += 1
                 else:
                     count_belum += 1; sv_belum += 1
+            elif izin:
+                count_izin += 1; sv_izin += 1
             else:
                 count_belum += 1; sv_belum += 1
 
@@ -255,6 +270,23 @@ def absensi_staff_detail(request, staff_pk):
 
     absensi_map = {a.tanggal: a for a in absensi_qs}
 
+    # ── Izin staff di bulan ini ─────────────────────────────────────────────
+    akhir_bulan = date(current_date.year, current_date.month, days_in_month)
+    awal_bulan  = date(current_date.year, current_date.month, 1)
+
+    izin_qs = IzinStaff.objects.filter(
+        staff=staff,
+        status=StatusIzinChoices.APPROVED,
+        tanggal_selesai__gte=awal_bulan,
+        tanggal_mulai__lte=akhir_bulan,
+    )
+    izin_map_per_date = {}
+    for izin in izin_qs:
+        d = izin.tanggal_mulai
+        while d <= izin.tanggal_selesai:
+            izin_map_per_date[d] = izin
+            d += timedelta(days=1)
+
     # ── Bangun calendar rows ─────────────────────────────────────────────────
     STATUS_HADIR = {'masuk', 'pulang', 'terlambat', 'overtime'}
     STATUS_IZIN_SH = {'I', 'L', 'DC'}
@@ -271,6 +303,7 @@ def absensi_staff_detail(request, staff_pk):
         is_future  = d > today
         libur_nama = libur_map.get(d, '')
         absensi    = absensi_map.get(d)
+        izin       = izin_map_per_date.get(d)
 
         # Hitung stats (hanya hari kerja non-libur non-weekend non-future)
         if not is_weekend and not is_libur and not is_future:
@@ -287,12 +320,15 @@ def absensi_staff_detail(request, staff_pk):
                         total_detik += int(dur.total_seconds())
                 else:
                     count_alpa += 1
+            elif izin:
+                count_izin += 1
             else:
                 count_alpa += 1
 
         calendar_rows.append({
             'tanggal'   : d,
             'absensi'   : absensi,
+            'izin'      : izin,
             'is_weekend': is_weekend,
             'is_libur'  : is_libur,
             'is_today'  : is_today,

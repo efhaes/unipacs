@@ -1,3 +1,4 @@
+from calendar import calendar
 import qrcode
 import io
 import base64
@@ -21,7 +22,7 @@ from outsourcing.models import (
     User, AbsensiStatusChoices, StatusHarianChoices, LokasiAbsensi,
 )
 from outsourcing.forms import LokasiAbsensiForm
-
+from datetime import datetime, time, date, timedelta
 
 # ─────────────────────────────────────────────
 # Helpers
@@ -244,11 +245,84 @@ def qr_nonaktifkan(request, pk):
 def absensi_rekap(request):
     supervisor      = _get_supervisor(request)
     ids             = _staff_ids(supervisor)
-    bulan_filter    = request.GET.get('bulan', '').strip()
+    staff_qs        = User.objects.filter(id__in=ids)
+    
     search_nama     = request.GET.get('q', '').strip()
-    filter_hari_ini = request.GET.get('hari_ini', '').strip()
+    tgl_filter      = request.GET.get('tgl', '').strip()
+    active_tab      = request.GET.get('tab', 'absensi')
+    bulan_filter    = request.GET.get('bulan', '').strip()
     bulan_sekarang  = date.today().strftime('%Y-%m')
+    
+    if search_nama:
+        staff_qs = staff_qs.filter(
+            Q(nama_lengkap__icontains=search_nama) |
+            Q(username__icontains=search_nama)
+        )
 
+    # ── TAB 1: ABSENSI (Harian) ──
+    try:
+        if tgl_filter:
+            tgl_obj = datetime.strptime(tgl_filter, '%Y-%m-%d').date()
+            tgl_custom = True
+        else:
+            tgl_obj = date.today()
+            tgl_custom = False
+    except ValueError:
+        tgl_obj = date.today()
+        tgl_custom = False
+
+    tgl_str = tgl_obj.strftime('%Y-%m-%d')
+    if tgl_obj == date.today():
+        tgl_display = f"{tgl_obj.strftime('%d %B %Y')} (Hari ini)"
+    else:
+        tgl_display = tgl_obj.strftime('%d %B %Y')
+
+    absensi_harian = Absensi.objects.filter(
+        staff__in=staff_qs,
+        tanggal=tgl_obj
+    ).select_related('qr_masuk', 'qr_pulang')
+    absensi_map = {a.staff_id: a for a in absensi_harian}
+
+    izin_harian = IzinStaff.objects.filter(
+        staff__in=staff_qs,
+        status=StatusIzinChoices.APPROVED,
+        tanggal_mulai__lte=tgl_obj,
+        tanggal_selesai__gte=tgl_obj
+    )
+    izin_map = {i.staff_id: i for i in izin_harian}
+
+    staff_data = []
+    stats = {'total_staff': len(staff_qs), 'hadir': 0, 'belum_absen': 0, 'izin': 0}
+
+    for staff in staff_qs:
+        absen = absensi_map.get(staff.id)
+        izin = izin_map.get(staff.id)
+        
+        # Determine status for stats
+        if absen:
+            s = absen.status
+            sh = absen.status_harian
+            if sh in ('I', 'L', 'DC') or s == 'izin':
+                stats['izin'] += 1
+            elif s in ('masuk', 'pulang', 'terlambat', 'overtime'):
+                stats['hadir'] += 1
+            else:
+                stats['belum_absen'] += 1
+        elif izin:
+            stats['izin'] += 1
+        else:
+            stats['belum_absen'] += 1
+
+        staff_data.append({
+            'staff': staff,
+            'absensi': absen,
+            'izin': izin,
+        })
+
+    # Sort staff_data by name
+    staff_data.sort(key=lambda x: (x['staff'].nama_lengkap or x['staff'].username).lower())
+
+    # ── TAB 2: IZIN (Bulanan) ──
     if not bulan_filter:
         bulan_filter = bulan_sekarang
 
@@ -257,81 +331,38 @@ def absensi_rekap(request):
     except ValueError:
         tahun_int, bulan_int = date.today().year, date.today().month
 
-    absensi_qs = (
-        Absensi.objects
-        .filter(staff_id__in=ids)
-        .select_related('staff', 'qr_masuk', 'qr_pulang')
-        .order_by('-tanggal', 'waktu_masuk')
-    )
-
-    if filter_hari_ini:
-        absensi_qs = absensi_qs.filter(tanggal=date.today())
-        tahun_int  = date.today().year
-        bulan_int  = date.today().month
-    else:
-        absensi_qs = absensi_qs.filter(
-            tanggal__year=tahun_int,
-            tanggal__month=bulan_int,
-        )
-
     last_day    = monthrange(tahun_int, bulan_int)[1]
     bulan_start = date(tahun_int, bulan_int, 1)
     bulan_end   = date(tahun_int, bulan_int, last_day)
 
-    izin_qs = (
-        IzinStaff.objects
-        .filter(staff_id__in=ids)
-        .select_related('staff', 'direview_oleh')
-        .filter(
-            tanggal_mulai__lte=bulan_end,
-            tanggal_selesai__gte=bulan_start,
-        )
-        .order_by('-tanggal_mulai')
-    )
-
-    if search_nama:
-        absensi_qs = absensi_qs.filter(
-            Q(staff__nama_lengkap__icontains=search_nama) |
-            Q(staff__username__icontains=search_nama)
-        )
-        izin_qs = izin_qs.filter(
-            Q(staff__nama_lengkap__icontains=search_nama) |
-            Q(staff__username__icontains=search_nama)
-        )
-
-    bulan_tersedia = (
-        Absensi.objects
-        .filter(staff_id__in=ids)
-        .dates('tanggal', 'month', order='DESC')
-    )
-
-    total       = absensi_qs.count()
-    total_masuk = absensi_qs.filter(waktu_masuk__isnull=False).count()
-    belum_absen = absensi_qs.filter(status=AbsensiStatusChoices.BELUM_ABSEN).count()
+    izin_qs = IzinStaff.objects.filter(
+        staff__in=staff_qs,
+        tanggal_mulai__lte=bulan_end,
+        tanggal_selesai__gte=bulan_start,
+    ).select_related('staff', 'direview_oleh').order_by('-tanggal_mulai')
 
     return render(request, 'supervisor/absensi/rekap.html', {
-        'absensi_qs'     : absensi_qs,
+        'active_tab'     : active_tab,
+        'search_nama'    : search_nama,
+        
+        # Absensi variables
+        'staff_data'     : staff_data,
+        'tgl_str'        : tgl_str,
+        'tgl_display'    : tgl_display,
+        'tgl_tampil'     : tgl_obj,
+        'tgl_custom'     : tgl_custom,
+        'stats'          : stats,
+        'total'          : stats['total_staff'],  # For the tab badge
+        
+        # Izin variables
         'izin_qs'        : izin_qs,
         'bulan_filter'   : bulan_filter,
-        'bulan_sekarang' : bulan_sekarang,
-        'bulan_tersedia' : bulan_tersedia,
-        'search_nama'    : search_nama,
-        'filter_hari_ini': filter_hari_ini,
-        'total'          : total,
-        'total_masuk'    : total_masuk,
-        'total_pulang'   : absensi_qs.filter(waktu_pulang__isnull=False).count(),
-        'total_overtime' : absensi_qs.filter(is_overtime=True).count(),
-        'belum_absen'    : belum_absen,
-        'belum_masuk'    : total - total_masuk,
-        'belum_review'   : absensi_qs.filter(
-            is_overtime=True,
-            overtime_status=OvertimeStatusChoices.BELUM_REVIEW,
-        ).count(),
-        'total_izin'    : izin_qs.count(),
-        'izin_pending'  : izin_qs.filter(status=StatusIzinChoices.PENDING).count(),
-        'izin_approved' : izin_qs.filter(status=StatusIzinChoices.APPROVED).count(),
-        'izin_rejected' : izin_qs.filter(status=StatusIzinChoices.REJECTED).count(),
-        'supervisor'    : supervisor,
+        'total_izin'     : izin_qs.count(),
+        'izin_pending'   : izin_qs.filter(status=StatusIzinChoices.PENDING).count(),
+        'izin_approved'  : izin_qs.filter(status=StatusIzinChoices.APPROVED).count(),
+        'izin_rejected'  : izin_qs.filter(status=StatusIzinChoices.REJECTED).count(),
+        
+        'supervisor'     : supervisor,
     })
 
 
@@ -347,9 +378,143 @@ def absensi_detail(request, pk):
         pk=pk,
         staff_id__in=_staff_ids(supervisor),
     )
+    
+    # Check if there is an approved Izin for this day
+    izin = IzinStaff.objects.filter(
+        staff=absensi.staff,
+        status=StatusIzinChoices.APPROVED,
+        tanggal_mulai__lte=absensi.tanggal,
+        tanggal_selesai__gte=absensi.tanggal,
+    ).first()
+    absensi.izin_staff = izin
+
     return render(request, 'supervisor/absensi/detail.html', {
         'absensi'   : absensi,
         'durasi'    : absensi.durasi_str,
+        'supervisor': supervisor,
+    })
+
+@supervisor_or_kepala_required
+def supervisor_absensi_staff_detail(request, staff_pk):
+    """
+    Menampilkan detail absensi sebulan penuh untuk 1 staff.
+    """
+    supervisor = _get_supervisor(request)
+    staff_ids  = _staff_ids(supervisor)
+    staff      = get_object_or_404(User, pk=staff_pk, id__in=staff_ids)
+
+    today = date.today()
+
+    bulan_str = request.GET.get('bulan', '').strip()
+    try:
+        tahun, bln = map(int, bulan_str.split('-'))
+        dt_start = date(tahun, bln, 1)
+    except ValueError:
+        dt_start = today.replace(day=1)
+        tahun, bln = dt_start.year, dt_start.month
+
+    last_day = monthrange(tahun, bln)[1]
+    dt_end   = date(tahun, bln, last_day)
+
+    # ── Fetch Absensi ──
+    absensi_qs = Absensi.objects.filter(
+        staff=staff,
+        tanggal__range=[dt_start, dt_end],
+    ).select_related('qr_masuk', 'qr_pulang')
+    absensi_map = {a.tanggal: a for a in absensi_qs}
+
+    # ── Fetch Izin (approved) ──
+    izin_qs = IzinStaff.objects.filter(
+        staff=staff,
+        status=StatusIzinChoices.APPROVED,
+        tanggal_mulai__lte=dt_end,
+        tanggal_selesai__gte=dt_start,
+    )
+    izin_map = {}
+    for iz in izin_qs:
+        curr = iz.tanggal_mulai
+        while curr <= iz.tanggal_selesai:
+            if dt_start <= curr <= dt_end:
+                izin_map[curr] = iz
+            curr += timedelta(days=1)
+
+    # ── Build calendar_rows + statistik ──
+    calendar_rows = []
+    total_durasi  = timedelta()
+    hadir = alpa = izin_count = 0
+
+    curr = dt_start
+    while curr <= dt_end:
+        absen = absensi_map.get(curr)
+        izin  = izin_map.get(curr)
+        if absen:
+            absen.izin_staff = izin
+
+        is_weekend = curr.weekday() >= 5   # Sabtu=5, Minggu=6
+        is_future  = curr > today
+
+        if absen and absen.status in ('masuk', 'pulang', 'terlambat', 'overtime'):
+            hadir += 1
+            if absen.waktu_masuk and absen.waktu_pulang:
+                masuk  = datetime.combine(curr, absen.waktu_masuk)
+                pulang = datetime.combine(curr, absen.waktu_pulang)
+                if pulang > masuk:
+                    total_durasi += (pulang - masuk)
+        elif izin or (absen and absen.status_harian in ('I', 'L', 'DC')):
+            izin_count += 1
+        elif absen and absen.status_harian == 'A':
+            alpa += 1
+        elif not is_future and not is_weekend:
+            # belum absen di hari kerja yang sudah lewat → dihitung alpa
+            alpa += 1
+
+        calendar_rows.append({
+            'tanggal'    : curr,
+            'is_today'   : curr == today,
+            'is_weekend' : is_weekend,
+            'is_libur'   : False,      # belum ada model hari libur, default False dulu
+            'libur_nama' : None,
+            'is_future'  : is_future,
+            'absensi'    : absen,
+            'izin'       : izin,
+        })
+        curr += timedelta(days=1)
+
+    total_jam   = int(total_durasi.total_seconds() // 3600)
+    total_menit = int((total_durasi.total_seconds() % 3600) // 60)
+    total_kerja_str = f"{total_jam}j {total_menit}m"
+
+    # ── Navigasi bulan ──
+    bulan_ini_pertama = today.replace(day=1)
+    is_current_month  = (tahun == today.year and bln == today.month)
+
+    prev_month_date = (dt_start - timedelta(days=1)).replace(day=1)
+    prev_bulan = prev_month_date.strftime('%Y-%m')
+
+    if dt_start < bulan_ini_pertama:
+        next_month_date = dt_end + timedelta(days=1)
+        next_bulan      = next_month_date.strftime('%Y-%m')
+        has_next_month  = True
+    else:
+        next_bulan     = None
+        has_next_month = False
+
+    return render(request, 'supervisor/absensi/staff_detail.html', {
+        'staff'           : staff,
+        'calendar_rows'   : calendar_rows,
+        'bulan_sekarang'  : f"{tahun}-{bln:02d}",
+        'bulan_display'   : dt_start.strftime('%B %Y'),
+        'prev_bulan'      : prev_bulan,
+        'next_bulan'      : next_bulan,
+        'is_current_month': is_current_month,
+        'has_next_month'  : has_next_month,
+        'total_hari_kerja': sum(1 for r in calendar_rows if not r['is_weekend'] and not r['is_libur']),
+        'monthly_stats'   : {
+            'hadir'          : hadir,
+            'alpa'           : alpa,
+            'izin'           : izin_count,
+            'total_kerja_str': total_kerja_str,
+        },
         'supervisor': supervisor,
     })
 

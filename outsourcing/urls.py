@@ -1,3 +1,4 @@
+from outsourcing.views.supervisor import customer_create
 from django.urls import path
 from outsourcing import views
 from outsourcing.views.auth import login_view, logout_view, dashboard_redirect
@@ -30,8 +31,8 @@ from outsourcing.views.supervisor import (
     staff_create, staff_edit, staff_toggle_aktif, staff_delete,
     subarea_list, subarea_create, subarea_edit, subarea_delete,
     task_list, task_create, task_edit, task_delete,
-    customer_create, qr_list, qr_generate, qr_nonaktifkan,
-    absensi_rekap, absensi_detail, izin_review,
+    qr_list, qr_generate, qr_nonaktifkan,
+    absensi_rekap, absensi_detail, supervisor_absensi_staff_detail, izin_review,
     lokasi_list, lokasi_tambah, lokasi_hapus, lokasi_toggle_aktif, lokasi_detail_json,
 )
 
@@ -141,6 +142,7 @@ urlpatterns = [
     path('supervisor/qr/generate/', qr_generate, name='supervisor_qr_generate'),
     path('supervisor/qr/<int:pk>/nonaktifkan/', qr_nonaktifkan, name='supervisor_qr_nonaktifkan'),
     path('supervisor/absensi/rekap/', absensi_rekap, name='supervisor_absensi_rekap'),
+    path('supervisor/absensi/staff/<int:staff_pk>/', supervisor_absensi_staff_detail, name='supervisor_absensi_staff_detail'),
     path('supervisor/absensi/<int:pk>/', absensi_detail, name='supervisor_absensi_detail'),
     path('supervisor/laporan/bulanan/<int:perusahaan_id>/<int:tahun>/<int:bulan>/<int:jenis_jasa_id>/download/<str:format>/',generate_laporan_bulanan, name='download_laporan_bulanan'),
     path('supervisor/absensi/<int:pk>/overtime-status/',api_update_overtime_status,name='supervisor_absensi_overtime_status',),

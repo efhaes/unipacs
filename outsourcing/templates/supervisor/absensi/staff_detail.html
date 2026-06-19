@@ -1,4 +1,4 @@
-{% extends 'customer/base_customer.html' %}
+{% extends 'supervisor/base_supervisor.html' %}
 
 {% block extra_css %}
 <style>
@@ -113,6 +113,7 @@
     flex-direction: column;
     gap: 7px;
     transition: background 0.15s, border-color 0.15s;
+    position: relative;
 }
 .day-card:hover { background: rgba(99,102,241,0.05); border-color: rgba(99,102,241,0.2); }
 .day-card.is-today {
@@ -173,6 +174,104 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
+/* ── OT Dropdown pill ─────────────────────────── */
+.ot-dropdown-wrap {
+  position: relative;
+  display: inline-block;
+  margin-top: auto;
+}
+.ot-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px 3px 8px;
+  border-radius: 20px;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: opacity .15s, transform .1s;
+  user-select: none;
+  white-space: nowrap;
+}
+.ot-pill:hover { opacity: .85; }
+.ot-pill:active { transform: scale(.97); }
+.ot-pill.pending  { background: rgba(234,179,8,.14);  color: #facc15; border-color: rgba(234,179,8,.30); }
+.ot-pill.paid     { background: rgba(34,197,94,.14);  color: #4ade80; border-color: rgba(34,197,94,.30); }
+.ot-pill.unpaid   { background: rgba(99,102,241,.14); color: #a5b4fc; border-color: rgba(99,102,241,.30); }
+.ot-pill svg { flex-shrink: 0; }
+
+.ot-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 999;
+  min-width: 150px;
+  background: #1a1f35;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0,0,0,.4);
+  animation: fadeDown .15s ease;
+}
+.ot-menu.show { display: block; }
+@keyframes fadeDown {
+  from { opacity:0; transform: translateY(-4px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+.ot-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255,255,255,.75);
+  cursor: pointer;
+  transition: background .12s;
+}
+.ot-menu-item:hover { background: rgba(255,255,255,.07); color: #fff; }
+.ot-menu-item .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.ot-menu-item.opt-paid   .dot { background: #4ade80; }
+.ot-menu-item.opt-unpaid .dot { background: #a5b4fc; }
+.ot-menu-item.opt-pending .dot { background: #facc15; }
+.ot-menu-item.active-opt { color: #fff; background: rgba(255,255,255,.05); }
+
+.ot-spinner {
+  width: 10px; height: 10px;
+  border: 2px solid rgba(255,255,255,.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin .6s linear infinite;
+  display: none;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.ot-pill.loading .ot-spinner { display: inline-block; }
+.ot-pill.loading .ot-icon   { display: none; }
+
+/* ── Toast ───────────────────────────────────── */
+#otToast {
+  position: fixed;
+  bottom: 24px; right: 24px;
+  z-index: 9999;
+  min-width: 240px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity .25s, transform .25s;
+  pointer-events: none;
+  backdrop-filter: blur(12px);
+}
+#otToast.show    { opacity: 1; transform: translateY(0); }
+#otToast.success { background: rgba(34,197,94,.85);  border: 1px solid rgba(34,197,94,.4); }
+#otToast.error   { background: rgba(239,68,68,.85);  border: 1px solid rgba(239,68,68,.4); }
+
+
 /* ── Responsive ── */
 @media (max-width: 600px) {
     .staff-hero { padding: 1rem; gap: 0.85rem; }
@@ -189,7 +288,7 @@
 
 <!-- ── HEADER ── -->
 <div class="page-header">
-    <a href="{% url 'customer_absensi_list' %}" class="btn-back">
+    <a href="{% url 'supervisor_absensi_rekap' %}" class="btn-back">
         <i class="bi bi-arrow-left"></i> Kembali
     </a>
     <div>
@@ -200,7 +299,7 @@
 
 <!-- ── STAFF HERO ── -->
 <div class="staff-hero">
-    <div class="hero-avatar">{{ staff.nama_lengkap|slice:":2" }}</div>
+    <div class="hero-avatar">{{ staff.nama_lengkap|slice:":2"|upper }}</div>
     <div class="hero-info">
         <div class="hero-name">{{ staff.nama_lengkap }}</div>
         <div class="hero-meta">
@@ -209,9 +308,6 @@
             {% endif %}
             {% if staff.telepon %}
                 <span><i class="bi bi-telephone"></i> {{ staff.telepon }}</span>
-            {% endif %}
-            {% if supervisor_aktif %}
-                <span><i class="bi bi-person-check"></i> Supervisor: {{ supervisor_aktif.nama_lengkap }}</span>
             {% endif %}
         </div>
     </div>
@@ -296,7 +392,7 @@
                     {% elif sh == 'A' %}
                         <span class="absen-status status-alpa"><i class="bi bi-x-circle"></i> Alpa</span>
                     {% elif sh == 'DC' %}
-                        <span class="absen-status status-dokter"><i class="bi bi-heart-pulse"></i> Dokter</span>
+                        <span class="absen-status status-dokter"><i class="bi bi-heart-pulse"></i> Sakit</span>
                     {% elif s == 'masuk' %}
                         <span class="absen-status status-hadir"><i class="bi bi-check-circle"></i> Hadir</span>
                     {% elif s == 'pulang' %}
@@ -361,8 +457,119 @@
             <div class="ket-text">{{ row.izin.keterangan|truncatechars:35|default:row.izin.get_tipe_display }}</div>
         {% endif %}
 
+        <!-- Overtime Menu for Supervisor -->
+        {% if row.absensi and row.absensi.is_overtime %}
+        <div class="ot-dropdown-wrap" data-absen-id="{{ row.absensi.pk }}" style="width:100%;margin-top:auto">
+            <div class="ot-pill {% if row.absensi.overtime_status == 'paid' %}paid{% elif row.absensi.overtime_status == 'unpaid' %}unpaid{% else %}pending{% endif %}"
+                 onclick="event.preventDefault(); toggleOtMenu(this)"
+                 style="width:100%;justify-content:center;">
+              <span class="ot-icon">{% if row.absensi.overtime_status == 'paid' %}💰{% elif row.absensi.overtime_status == 'unpaid' %}🔵{% else %}⏱{% endif %}</span>
+              <span class="ot-label">{% if row.absensi.overtime_status == 'paid' %}OT Dibayar{% elif row.absensi.overtime_status == 'unpaid' %}OT Tdk Dibayar{% else %}OT Review{% endif %}</span>
+              <div class="ot-spinner"></div>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:2px">
+                <polyline points="6,9 12,15 18,9"/>
+              </svg>
+            </div>
+            <div class="ot-menu" style="width:100%">
+              <div class="ot-menu-item opt-paid {% if row.absensi.overtime_status == 'paid' %}active-opt{% endif %}" onclick="setOtStatus(this,'paid')"><span class="dot"></span> 💰 Dibayar</div>
+              <div class="ot-menu-item opt-unpaid {% if row.absensi.overtime_status == 'unpaid' %}active-opt{% endif %}" onclick="setOtStatus(this,'unpaid')"><span class="dot"></span> 🔵 Tidak Dibayar</div>
+              <div class="ot-menu-item opt-pending {% if row.absensi.overtime_status == 'belum_review' %}active-opt{% endif %}" onclick="setOtStatus(this,'belum_review')"><span class="dot"></span> ⏱ Belum Review</div>
+            </div>
+        </div>
+        {% endif %}
+
     </div>
     {% endfor %}
 </div>
 
+<div id="otToast"></div>
+
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+// ─────────────────────────────────────────────
+//  OT Dropdown toggle
+// ─────────────────────────────────────────────
+function toggleOtMenu(pillEl) {
+  if (pillEl.classList.contains('loading')) return;
+  const wrap   = pillEl.closest('.ot-dropdown-wrap');
+  const menu   = wrap.querySelector('.ot-menu');
+  const isOpen = menu.classList.contains('show');
+  document.querySelectorAll('.ot-menu.show').forEach(m => m.classList.remove('show'));
+  if (!isOpen) menu.classList.add('show');
+}
+
+document.addEventListener('click', function (e) {
+  if (!e.target.closest('.ot-dropdown-wrap'))
+    document.querySelectorAll('.ot-menu.show').forEach(m => m.classList.remove('show'));
+});
+
+// ─────────────────────────────────────────────
+//  Set OT status via AJAX
+// ─────────────────────────────────────────────
+function setOtStatus(itemEl, newStatus) {
+  const wrap    = itemEl.closest('.ot-dropdown-wrap');
+  const absenId = wrap.dataset.absenId;
+  const pill    = wrap.querySelector('.ot-pill');
+  const menu    = wrap.querySelector('.ot-menu');
+
+  menu.classList.remove('show');
+  if (itemEl.classList.contains('active-opt')) return;
+  pill.classList.add('loading');
+
+  const fd = new FormData();
+  fd.append('action', newStatus);
+  fd.append('csrfmiddlewaretoken', getCsrf());
+
+  fetch(`/supervisor/absensi/${absenId}/overtime-status/`, {
+    method: 'POST',
+    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    body: fd,
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      const labelMap = {
+        paid        : { emoji: '💰', text: 'OT Dibayar',      cls: 'paid'    },
+        unpaid      : { emoji: '🔵', text: 'OT Tdk Dibayar',  cls: 'unpaid'  },
+        belum_review: { emoji: '⏱',  text: 'OT Review',       cls: 'pending' },
+      };
+      const info = labelMap[newStatus];
+      pill.classList.remove('paid', 'unpaid', 'pending');
+      pill.classList.add(info.cls);
+      pill.querySelector('.ot-icon').textContent  = info.emoji;
+      pill.querySelector('.ot-label').textContent = info.text;
+      wrap.querySelectorAll('.ot-menu-item').forEach(mi => mi.classList.remove('active-opt'));
+      itemEl.classList.add('active-opt');
+      showToast('Status overtime diperbarui ✓', 'success');
+    } else {
+      showToast(data.error || 'Gagal memperbarui status.', 'error');
+    }
+  })
+  .catch(() => showToast('Terjadi kesalahan koneksi.', 'error'))
+  .finally(() => pill.classList.remove('loading'));
+}
+
+// ─────────────────────────────────────────────
+//  Toast
+// ─────────────────────────────────────────────
+function showToast(msg, type = 'success') {
+  const el = document.getElementById('otToast');
+  el.textContent = msg;
+  el.className = `show ${type}`;
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => { el.className = ''; }, 3000);
+}
+
+// ─────────────────────────────────────────────
+//  CSRF
+// ─────────────────────────────────────────────
+function getCsrf() {
+  return document.cookie.split(';')
+    .find(c => c.trim().startsWith('csrftoken='))
+    ?.split('=')[1] || '';
+}
+</script>
 {% endblock %}

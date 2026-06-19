@@ -148,6 +148,96 @@
 .izin-badge.approved { background: rgba(34,197,94,.12);  color: #4ade80; border: 1px solid rgba(34,197,94,.25); }
 .izin-badge.rejected { background: rgba(239,68,68,.12);  color: #f87171; border: 1px solid rgba(239,68,68,.25); }
 
+/* ── Absensi Status Badge (from Customer view) ── */
+.absen-status {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11.5px; font-weight: 700;
+    padding: 3px 10px; border-radius: 20px;
+    white-space: nowrap; flex-shrink: 0;
+}
+.status-hadir    { background: rgba(52,211,153,0.12); color: #34d399; border: 1px solid rgba(52,211,153,0.25); }
+.status-pulang   { background: rgba(99,102,241,0.12); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.25); }
+.status-terlambat{ background: rgba(251,191,36,0.12);  color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
+.status-overtime { background: rgba(251,146,60,0.12);  color: #fb923c; border: 1px solid rgba(251,146,60,0.25); }
+.status-belum    { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.88); border: 1px solid rgba(255,255,255,0.22); font-weight: 800; }
+.status-izin     { background: rgba(251,191,36,0.12);  color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
+.status-cuti     { background: rgba(167,139,250,0.12); color: #c4b5fd; border: 1px solid rgba(167,139,250,0.25); }
+.status-alpa     { background: rgba(248,113,113,0.12); color: #f87171; border: 1px solid rgba(248,113,113,0.25); }
+.status-dokter   { background: rgba(56,189,248,0.12);  color: #7dd3fc; border: 1px solid rgba(56,189,248,0.25); }
+.status-libur    { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.88); border: 1px solid rgba(255,255,255,0.22); font-weight: 800; }
+
+/* ── Staff Grid ── */
+.staff-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 10px;
+    padding: 0;
+}
+@media (max-width: 600px) {
+    .staff-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── Staff Card ── */
+.staff-absen-card {
+    border: 1px solid var(--clr-border);
+    border-radius: 14px;
+    padding: 16px 12px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 7px;
+    text-decoration: none;
+    background: rgba(255,255,255,0.02);
+    transition: background 0.15s, border-color 0.15s;
+    cursor: pointer;
+    position: relative;
+}
+.staff-absen-card:hover {
+    background: rgba(99,102,241,0.07);
+    border-color: rgba(99,102,241,0.3);
+}
+
+.staff-avatar {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700;
+    flex-shrink: 0; text-transform: uppercase;
+}
+.avatar-0 { background: rgba(99,102,241,0.15);  border: 1px solid rgba(99,102,241,0.3);  color: #a5b4fc; }
+.avatar-1 { background: rgba(52,211,153,0.12);  border: 1px solid rgba(52,211,153,0.3);  color: #34d399; }
+.avatar-2 { background: rgba(251,191,36,0.12);  border: 1px solid rgba(251,191,36,0.3);  color: #fbbf24; }
+.avatar-3 { background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.3); color: #f87171; }
+.avatar-4 { background: rgba(167,139,250,0.12); border: 1px solid rgba(167,139,250,0.3); color: #c4b5fd; }
+
+.staff-info { width: 100%; }
+.staff-name {
+    font-size: 13px; font-weight: 700;
+    color: var(--clr-text-primary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.staff-nik {
+    font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.72); margin-top: 1px;
+}
+
+.time-info {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+}
+.time-in, .time-out {
+    font-size: 11px; font-weight: 600;
+    display: flex; align-items: center; gap: 3px;
+    color: var(--clr-text-secondary);
+}
+.time-in  i { color: #34d399; opacity: 0.8; }
+.time-out i { color: #f87171; opacity: 0.8; }
+.time-dash { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.55); }
+
+
+
 /* ── Izin action buttons ─────────────────────── */
 .izin-action-btn {
   padding: 4px 10px;
@@ -262,62 +352,31 @@ input[type="month"], .filter-select { color-scheme: dark; }
   <div class="card mb-4" style="background:rgba(255,255,255,0.02)!important;border:1px solid var(--clr-border)">
     <div class="card-body py-3 px-4">
       <form method="get" id="filterForm">
-        {# Simpan tab aktif di hidden input supaya tidak reset saat filter #}
         <input type="hidden" name="tab" id="hiddenTab" value="{{ active_tab|default:'absensi' }}">
         <div class="d-flex align-items-center gap-3 flex-wrap">
 
           <div class="d-flex align-items-center gap-2">
-            <span style="color:var(--clr-text-muted);font-size:13px;white-space:nowrap">Tampilkan bulan:</span>
-            <input type="month" name="bulan" value="{{ bulan_filter }}"
-                   id="inputBulan" onchange="submitFilter()" min="2020-01"
+            <span style="color:var(--clr-text-muted);font-size:13px;white-space:nowrap">Tanggal:</span>
+            <input type="date" name="tgl" value="{{ tgl_str }}"
+                   id="inputTgl" onchange="document.getElementById('filterForm').submit()"
                    style="font-size:13px;background:rgba(255,255,255,0.05);color:var(--clr-text-secondary);
                           border:1px solid var(--clr-border);border-radius:8px;padding:5px 10px;cursor:pointer">
           </div>
 
-          {% if bulan_tersedia %}
-          <select class="filter-select"
-                  onchange="window.location='?bulan='+this.value+'{% if search_nama %}&q={{ search_nama }}{% endif %}&tab={{ active_tab|default:"absensi" }}'"
-                  title="Pilih bulan yang ada datanya"
-                  style="font-size:12px;background:rgba(255,255,255,0.05);color:var(--clr-text-secondary);
-                         border:1px solid var(--clr-border);border-radius:8px;padding:5px 10px;cursor:pointer">
-            <option value="">— Pilih bulan —</option>
-            {% for tgl in bulan_tersedia %}
-              <option value="{{ tgl|date:'Y-m' }}" {% if tgl|date:'Y-m' == bulan_filter %}selected{% endif %}>
-                {{ tgl|date:"F Y" }}
-              </option>
-            {% endfor %}
-          </select>
-          {% endif %}
-
-          {% if bulan_filter != bulan_sekarang %}
-          <a href="?bulan={{ bulan_sekarang }}{% if search_nama %}&q={{ search_nama }}{% endif %}&tab={{ active_tab|default:'absensi' }}"
+          {% if tgl_custom %}
+          <a href="?tab={{ active_tab|default:'absensi' }}{% if search_nama %}&q={{ search_nama }}{% endif %}"
              class="btn btn-sm"
-             style="background:rgba(255,255,255,0.05);color:var(--clr-text-secondary);
-                    border:1px solid var(--clr-border);font-size:12px;white-space:nowrap">
-            Bulan ini
+             style="background:rgba(34,197,94,.15);color:#4ade80;
+                    border:1px solid rgba(34,197,94,.3);font-size:12px;white-space:nowrap">
+            📍 Hari ini
           </a>
           {% endif %}
-<!-- Tambah setelah tombol "Bulan ini" -->
-{% if filter_hari_ini %}
-  <a href="?bulan={{ bulan_filter }}{% if search_nama %}&q={{ search_nama }}{% endif %}&tab={{ active_tab|default:'absensi' }}"
-     class="btn btn-sm"
-     style="background:rgba(99,102,241,.2);color:#a5b4fc;
-            border:1px solid rgba(99,102,241,.4);font-size:12px;white-space:nowrap">
-    📅 Semua bulan ini
-  </a>
-{% else %}
-  <a href="?hari_ini=1&tab={{ active_tab|default:'absensi' }}{% if search_nama %}&q={{ search_nama }}{% endif %}"
-     class="btn btn-sm"
-     style="background:rgba(34,197,94,.15);color:#4ade80;
-            border:1px solid rgba(34,197,94,.3);font-size:12px;white-space:nowrap">
-    📍 Hari ini
-  </a>
-{% endif %}
+
           <div style="margin-left:auto;position:relative">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                  style="position:absolute;left:10px;top:50%;transform:translateY(-50%);
                         color:var(--clr-text-muted);pointer-events:none">
-              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
             </svg>
             <input type="text" name="q" id="searchNama"
                    value="{{ search_nama }}"
@@ -340,32 +399,32 @@ input[type="month"], .filter-select { color-scheme: dark; }
     <div class="col-6 col-md-3">
       <div class="card" style="background:rgba(255,255,255,0.04);border:1px solid var(--clr-border)">
         <div class="card-body text-center py-3">
-          <div style="color:var(--clr-text-primary);font-size:28px;font-weight:600">{{ total }}</div>
-          <div style="color:var(--clr-text-muted);font-size:12px">Total Absensi</div>
+          <div style="color:var(--clr-text-primary);font-size:28px;font-weight:600">{{ stats.total_staff }}</div>
+          <div style="color:var(--clr-text-muted);font-size:12px">Total Staff</div>
         </div>
       </div>
     </div>
     <div class="col-6 col-md-3">
       <div class="card" style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2)">
         <div class="card-body text-center py-3">
-          <div style="color:var(--clr-success);font-size:28px;font-weight:600">{{ total_masuk }}</div>
-          <div style="color:var(--clr-text-muted);font-size:12px">Sudah Masuk</div>
+          <div style="color:var(--clr-success);font-size:28px;font-weight:600">{{ stats.hadir }}</div>
+          <div style="color:var(--clr-text-muted);font-size:12px">Hadir Hari Ini</div>
         </div>
       </div>
     </div>
     <div class="col-6 col-md-3">
-      <div class="card" style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2)">
+      <div class="card" style="background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2)">
         <div class="card-body text-center py-3">
-          <div style="color:var(--clr-accent);font-size:28px;font-weight:600">{{ total_pulang }}</div>
-          <div style="color:var(--clr-text-muted);font-size:12px">Sudah Pulang</div>
+          <div style="color:var(--clr-danger);font-size:28px;font-weight:600">{{ stats.belum_absen }}</div>
+          <div style="color:var(--clr-text-muted);font-size:12px">Belum Absen</div>
         </div>
       </div>
     </div>
     <div class="col-6 col-md-3">
       <div class="card" style="background:rgba(250,204,21,0.08);border:1px solid rgba(250,204,21,0.2)">
         <div class="card-body text-center py-3">
-          <div style="color:var(--clr-warning);font-size:28px;font-weight:600">{{ izin_pending }}</div>
-          <div style="color:var(--clr-text-muted);font-size:12px">Izin Pending</div>
+          <div style="color:var(--clr-warning);font-size:28px;font-weight:600">{{ stats.izin }}</div>
+          <div style="color:var(--clr-text-muted);font-size:12px">Izin / Cuti</div>
         </div>
       </div>
     </div>
@@ -393,208 +452,128 @@ input[type="month"], .filter-select { color-scheme: dark; }
   <!-- ══════════════════════════════════════════ -->
   <div id="panel-absensi" class="tab-panel {% if active_tab != 'izin' %}active{% endif %}">
 
-    {% if absensi_qs %}
-
-    <!-- Desktop table -->
-    <div class="card rekap-table-view">
-      <div class="card-body p-0">
-        <div class="table-responsive">
-          <table class="table table-hover mb-0">
-            <thead>
-              <tr>
-                <th style="padding:14px 20px">Staff</th>
-                <th style="padding:14px 20px">Tanggal</th>
-                <th style="padding:14px 20px">Jam Masuk</th>
-                <th style="padding:14px 20px">Jam Pulang</th>
-                <th style="padding:14px 20px">Durasi</th>
-                <th style="padding:14px 20px">Status</th>
-                <th style="padding:14px 20px">Keterangan OT</th>
-                <th style="padding:14px 20px">Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for absen in absensi_qs %}
-              <tr>
-                <!-- Staff -->
-                <td style="padding:14px 20px">
-                  <div style="display:flex;align-items:center;gap:10px">
-                    <div style="width:32px;height:32px;background:linear-gradient(135deg,var(--clr-accent),#8b5cf6);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:white;flex-shrink:0">
-                      {{ absen.staff.nama_lengkap|default:absen.staff.username|slice:":2"|upper }}
-                    </div>
-                    <div>
-                      <div style="font-weight:500;color:var(--clr-text-primary)">{{ absen.staff.nama_lengkap|default:absen.staff.username }}</div>
-                      <div style="font-size:11px;color:var(--clr-text-muted)">{{ absen.staff.username }}</div>
-                    </div>
-                  </div>
-                </td>
-
-                <!-- Tanggal -->
-                <td style="padding:14px 20px">
-                  <div style="font-weight:500;color:var(--clr-text-primary)">{{ absen.tanggal|date:"d M Y" }}</div>
-                  <div style="font-size:11px;color:var(--clr-text-muted)">{{ absen.tanggal|date:"l" }}</div>
-                </td>
-
-                <!-- Jam Masuk -->
-                <td style="padding:14px 20px">
-                  {% if absen.waktu_masuk %}
-                    <div style="display:flex;align-items:center;gap:6px">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--clr-success)" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>
-                      </svg>
-                      <span style="color:var(--clr-text-primary);font-size:13px">{{ absen.waktu_masuk|time:"H:i" }}</span>
-                    </div>
-                  {% else %}
-                    <span style="color:var(--clr-text-muted)">-</span>
-                  {% endif %}
-                </td>
-
-                <!-- Jam Pulang -->
-                <td style="padding:14px 20px">
-                  {% if absen.waktu_pulang %}
-                    <div style="display:flex;align-items:center;gap:6px">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--clr-accent)" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>
-                      </svg>
-                      <span style="color:var(--clr-text-primary);font-size:13px">{{ absen.waktu_pulang|time:"H:i" }}</span>
-                    </div>
-                  {% else %}
-                    <span style="color:var(--clr-text-muted)">-</span>
-                  {% endif %}
-                </td>
-
-                <!-- Durasi -->
-                <td style="padding:14px 20px">
-                  <span style="color:var(--clr-text-primary);font-size:13px">{{ absen.durasi_str }}</span>
-                </td>
-
-                <!-- Status + OT pill -->
-                <td style="padding:14px 20px">
-                  <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start">
-                    {% if absen.status == 'masuk' %}
-                      <span class="badge-aktif">Sudah Masuk</span>
-                    {% elif absen.status == 'pulang' %}
-                      <span class="badge-selesai">Sudah Pulang</span>
-                    {% elif absen.status == 'terlambat' %}
-                      <span style="background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.25);font-size:11px;padding:2px 8px;border-radius:6px;font-weight:500;display:inline-block">Terlambat</span>
-                    {% elif absen.status == 'overtime' %}
-                      <span style="background:rgba(234,179,8,.12);color:#facc15;border:1px solid rgba(234,179,8,.25);font-size:11px;padding:2px 8px;border-radius:6px;font-weight:500;display:inline-block">Overtime</span>
-                    {% else %}
-                      <span class="badge-draft">Belum Absen</span>
-                    {% endif %}
-
-                    {% if absen.izin_pulang_awal %}
-                      <span style="background:rgba(249,115,22,.12);color:#fb923c;border:1px solid rgba(249,115,22,.25);font-size:11px;padding:2px 8px;border-radius:6px;font-weight:500;display:inline-block">🚪 Izin Pulang Awal</span>
-                    {% endif %}
-
-                    {% if absen.is_overtime %}
-                    <div class="ot-dropdown-wrap" data-absen-id="{{ absen.pk }}">
-                      <div class="ot-pill {% if absen.overtime_status == 'paid' %}paid{% elif absen.overtime_status == 'unpaid' %}unpaid{% else %}pending{% endif %}"
-                           onclick="toggleOtMenu(this)">
-                        <span class="ot-icon">{% if absen.overtime_status == 'paid' %}💰{% elif absen.overtime_status == 'unpaid' %}🔵{% else %}⏱{% endif %}</span>
-                        <span class="ot-label">{% if absen.overtime_status == 'paid' %}OT Dibayar{% elif absen.overtime_status == 'unpaid' %}OT Tdk Dibayar{% else %}OT Belum Review{% endif %}</span>
-                        <div class="ot-spinner"></div>
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:2px">
-                          <polyline points="6,9 12,15 18,9"/>
-                        </svg>
-                      </div>
-                      <div class="ot-menu">
-                        <div class="ot-menu-item opt-paid {% if absen.overtime_status == 'paid' %}active-opt{% endif %}" onclick="setOtStatus(this,'paid')"><span class="dot"></span> 💰 Dibayar</div>
-                        <div class="ot-menu-item opt-unpaid {% if absen.overtime_status == 'unpaid' %}active-opt{% endif %}" onclick="setOtStatus(this,'unpaid')"><span class="dot"></span> 🔵 Tidak Dibayar</div>
-                        <div class="ot-menu-item opt-pending {% if absen.overtime_status == 'belum_review' %}active-opt{% endif %}" onclick="setOtStatus(this,'belum_review')"><span class="dot"></span> ⏱ Belum Review</div>
-                      </div>
-                    </div>
-                    {% endif %}
-                  </div>
-                </td>
-
-                <!-- Keterangan OT -->
-                <td style="padding:14px 20px;max-width:200px">
-                  {% if absen.is_overtime and absen.catatan %}
-                    <div style="font-size:12px;color:rgba(255,255,255,.65);font-style:italic;word-break:break-word;line-height:1.5">{{ absen.catatan }}</div>
-                  {% elif absen.izin_pulang_awal and absen.keterangan_izin_pulang %}
-                    <div style="font-size:12px;color:#fb923c;font-style:italic;word-break:break-word">{{ absen.keterangan_izin_pulang }}</div>
-                  {% else %}
-                    <span style="color:var(--clr-text-muted);font-size:12px">-</span>
-                  {% endif %}
-                </td>
-
-                <!-- Aksi -->
-                <td style="padding:14px 20px">
-                  <a href="{% url 'supervisor_absensi_detail' absen.pk %}" class="btn btn-sm"
-                     style="background:var(--clr-accent-light);color:#a5b4fc;border:1px solid var(--clr-accent-mid);font-size:12px;padding:5px 12px">
-                    👁 Detail
-                  </a>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:1rem;">
+        <span style="font-size:12px;color:var(--clr-text-muted);">
+            <i class="bi bi-calendar3" style="margin-right:4px;"></i>
+            Menampilkan data tanggal:
+        </span>
+        <span style="font-size:13px;font-weight:700;color:var(--clr-text-primary);">
+            {{ tgl_display }}
+        </span>
     </div>
 
-    <!-- Mobile cards -->
-    <div class="rekap-card-list">
-      {% for absen in absensi_qs %}
-      <div class="absen-card">
-        <div class="absen-card-header">
-          <div class="absen-card-staff">
-            <div class="absen-card-avatar">{{ absen.staff.nama_lengkap|default:absen.staff.username|slice:":2"|upper }}</div>
-            <div>
-              <div style="font-weight:500;color:var(--clr-text-primary);font-size:14px">{{ absen.staff.nama_lengkap|default:absen.staff.username }}</div>
-              <div style="font-size:11px;color:var(--clr-text-muted)">{{ absen.staff.username }}</div>
-            </div>
-          </div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
-            {% if absen.status == 'masuk' %}<span class="badge-aktif">Masuk</span>
-            {% elif absen.status == 'pulang' %}<span class="badge-selesai">Pulang</span>
-            {% elif absen.status == 'terlambat' %}<span style="background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.25);font-size:11px;padding:2px 8px;border-radius:6px;font-weight:500">Terlambat</span>
-            {% elif absen.status == 'overtime' %}<span style="background:rgba(234,179,8,.12);color:#facc15;border:1px solid rgba(234,179,8,.25);font-size:11px;padding:2px 8px;border-radius:6px;font-weight:500">Overtime</span>
-            {% else %}<span class="badge-draft">Belum</span>{% endif %}
-            {% if absen.izin_pulang_awal %}<span style="background:rgba(249,115,22,.12);color:#fb923c;border:1px solid rgba(249,115,22,.25);font-size:10px;padding:2px 6px;border-radius:6px;font-weight:500">🚪 Izin Awal</span>{% endif %}
-          </div>
+    {% if staff_data %}
+    <div class="staff-grid">
+      {% for sd in staff_data %}
+        <div style="position:relative">
+            <a href="{% url 'supervisor_absensi_staff_detail' sd.staff.pk %}"
+               class="staff-absen-card"
+               data-nama="{{ sd.staff.nama_lengkap|lower }}"
+               data-nik="{{ sd.staff.nik|default:''|lower }}">
+
+                <!-- Avatar -->
+                <div class="staff-avatar avatar-{{ forloop.counter0|divisibleby:5|yesno:'0,0' }}{% if forloop.counter0|divisibleby:4 %}4{% elif forloop.counter0|divisibleby:3 %}3{% elif forloop.counter0|divisibleby:2 %}2{% elif forloop.counter0|divisibleby:1 %}1{% endif %}">
+                    {{ sd.staff.nama_lengkap|default:sd.staff.username|slice:":2"|upper }}
+                </div>
+
+                <!-- Nama -->
+                <div class="staff-info">
+                    <div class="staff-name">{{ sd.staff.nama_lengkap|default:sd.staff.username }}</div>
+                    <div class="staff-nik">{% if sd.staff.nik %}NIK {{ sd.staff.nik }}{% else %}NIK —{% endif %}</div>
+                </div>
+
+                <!-- Status badge -->
+                {% if sd.absensi %}
+                    {% with s=sd.absensi.status sh=sd.absensi.status_harian %}
+                        {% if sh == 'I' %}
+                            <span class="absen-status status-izin"><i class="bi bi-file-text"></i> Izin</span>
+                        {% elif sh == 'L' %}
+                            <span class="absen-status status-cuti"><i class="bi bi-briefcase"></i> Cuti</span>
+                        {% elif sh == 'A' %}
+                            <span class="absen-status status-alpa"><i class="bi bi-x-circle"></i> Alpa</span>
+                        {% elif sh == 'DC' %}
+                            <span class="absen-status status-dokter"><i class="bi bi-heart-pulse"></i> Sakit</span>
+                        {% elif sh == 'LB' %}
+                            <span class="absen-status status-libur"><i class="bi bi-moon"></i> Libur</span>
+                        {% elif s == 'masuk' %}
+                            <span class="absen-status status-hadir"><i class="bi bi-check-circle"></i> Hadir</span>
+                        {% elif s == 'pulang' %}
+                            <span class="absen-status status-pulang"><i class="bi bi-box-arrow-right"></i> Pulang</span>
+                        {% elif s == 'terlambat' %}
+                            <span class="absen-status status-terlambat"><i class="bi bi-clock-history"></i> Terlambat</span>
+                        {% elif s == 'overtime' %}
+                            <span class="absen-status status-overtime"><i class="bi bi-moon-stars"></i> Overtime</span>
+                        {% else %}
+                            <span class="absen-status status-belum"><i class="bi bi-dash-circle"></i> Belum Absen</span>
+                        {% endif %}
+                    {% endwith %}
+                {% elif sd.izin %}
+                    {% if sd.izin.tipe == 'cuti' %}
+                        <span class="absen-status status-cuti"><i class="bi bi-briefcase"></i> Cuti</span>
+                    {% elif sd.izin.tipe == 'sakit' %}
+                        <span class="absen-status status-dokter"><i class="bi bi-heart-pulse"></i> Sakit</span>
+                    {% else %}
+                        <span class="absen-status status-izin"><i class="bi bi-file-text"></i> Izin</span>
+                    {% endif %}
+                {% else %}
+                    <span class="absen-status status-belum"><i class="bi bi-dash-circle"></i> Belum Absen</span>
+                {% endif %}
+
+                <!-- Jam masuk / pulang -->
+                <div class="time-info">
+                    {% if sd.absensi %}
+                        {% if sd.absensi.waktu_masuk %}
+                            <div class="time-in">
+                                <i class="bi bi-box-arrow-in-right"></i>
+                                {{ sd.absensi.waktu_masuk|time:"H:i" }}
+                            </div>
+                        {% else %}
+                            <div class="time-dash">—</div>
+                        {% endif %}
+                        
+                        {% if sd.absensi.waktu_pulang %}
+                            <div class="time-out">
+                                <i class="bi bi-box-arrow-right"></i>
+                                {{ sd.absensi.waktu_pulang|time:"H:i" }}
+                            </div>
+                        {% endif %}
+                    {% elif sd.izin %}
+                        <div class="time-dash" style="color:var(--clr-text-muted);font-size:11px;">{{ sd.izin.get_tipe_display }}</div>
+                    {% else %}
+                        <div class="time-dash">—</div>
+                    {% endif %}
+                </div>
+
+                {% if sd.absensi and sd.absensi.is_overtime %}
+                <div class="ot-dropdown-wrap" data-absen-id="{{ sd.absensi.pk }}">
+                    <div class="ot-pill {% if sd.absensi.overtime_status == 'paid' %}paid{% elif sd.absensi.overtime_status == 'unpaid' %}unpaid{% else %}pending{% endif %}"
+                         onclick="event.preventDefault(); toggleOtMenu(this)">
+                      <span class="ot-icon">{% if sd.absensi.overtime_status == 'paid' %}💰{% elif sd.absensi.overtime_status == 'unpaid' %}🔵{% else %}⏱{% endif %}</span>
+                      <span class="ot-label">{% if sd.absensi.overtime_status == 'paid' %}OT Dibayar{% elif sd.absensi.overtime_status == 'unpaid' %}OT Tdk Dibayar{% else %}OT Review{% endif %}</span>
+                      <div class="ot-spinner"></div>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:2px">
+                        <polyline points="6,9 12,15 18,9"/>
+                      </svg>
+                    </div>
+                    <div class="ot-menu">
+                      <div class="ot-menu-item opt-paid {% if sd.absensi.overtime_status == 'paid' %}active-opt{% endif %}" onclick="event.preventDefault(); setOtStatus(this,'paid')"><span class="dot"></span> 💰 Dibayar</div>
+                      <div class="ot-menu-item opt-unpaid {% if sd.absensi.overtime_status == 'unpaid' %}active-opt{% endif %}" onclick="event.preventDefault(); setOtStatus(this,'unpaid')"><span class="dot"></span> 🔵 Tidak Dibayar</div>
+                      <div class="ot-menu-item opt-pending {% if sd.absensi.overtime_status == 'belum_review' %}active-opt{% endif %}" onclick="event.preventDefault(); setOtStatus(this,'belum_review')"><span class="dot"></span> ⏱ Belum Review</div>
+                    </div>
+                </div>
+                {% endif %}
+
+            </a>
+
         </div>
-        <div class="absen-card-meta">
-          <div class="absen-card-meta-item"><span class="label">Tanggal</span><span class="value">{{ absen.tanggal|date:"d M Y" }}</span></div>
-          <div class="absen-card-meta-item"><span class="label">Hari</span><span class="value">{{ absen.tanggal|date:"l" }}</span></div>
-          <div class="absen-card-meta-item"><span class="label">Jam Masuk</span><span class="value">{% if absen.waktu_masuk %}{{ absen.waktu_masuk|time:"H:i" }}{% else %}-{% endif %}</span></div>
-          <div class="absen-card-meta-item"><span class="label">Jam Pulang</span><span class="value">{% if absen.waktu_pulang %}{{ absen.waktu_pulang|time:"H:i" }}{% else %}-{% endif %}</span></div>
-          <div class="absen-card-meta-item"><span class="label">Durasi</span><span class="value">{{ absen.durasi_str }}</span></div>
-        </div>
-        {% if absen.is_overtime %}
-        <div style="margin-top:10px;padding:10px 12px;background:rgba(234,179,8,.07);border:1px solid rgba(234,179,8,.2);border-radius:8px">
-          <div style="font-size:11px;font-weight:600;color:#facc15;margin-bottom:6px">🕐 Overtime</div>
-          {% if absen.catatan %}<div style="font-size:12px;color:rgba(255,255,255,.7);font-style:italic;margin-bottom:8px">"{{ absen.catatan }}"</div>{% else %}<div style="font-size:12px;color:var(--clr-text-muted);margin-bottom:8px">— tidak ada keterangan —</div>{% endif %}
-          <div class="ot-dropdown-wrap" data-absen-id="{{ absen.pk }}" style="width:100%">
-            <div class="ot-pill {% if absen.overtime_status == 'paid' %}paid{% elif absen.overtime_status == 'unpaid' %}unpaid{% else %}pending{% endif %}" onclick="toggleOtMenu(this)" style="width:100%;justify-content:space-between">
-              <span style="display:flex;align-items:center;gap:6px">
-                <span class="ot-icon">{% if absen.overtime_status == 'paid' %}💰{% elif absen.overtime_status == 'unpaid' %}🔵{% else %}⏱{% endif %}</span>
-                <span class="ot-label">{% if absen.overtime_status == 'paid' %}OT Dibayar{% elif absen.overtime_status == 'unpaid' %}OT Tidak Dibayar{% else %}OT Belum Review{% endif %}</span>
-                <div class="ot-spinner"></div>
-              </span>
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6,9 12,15 18,9"/></svg>
-            </div>
-            <div class="ot-menu" style="width:100%">
-              <div class="ot-menu-item opt-paid {% if absen.overtime_status == 'paid' %}active-opt{% endif %}" onclick="setOtStatus(this,'paid')"><span class="dot"></span> 💰 Dibayar</div>
-              <div class="ot-menu-item opt-unpaid {% if absen.overtime_status == 'unpaid' %}active-opt{% endif %}" onclick="setOtStatus(this,'unpaid')"><span class="dot"></span> 🔵 Tidak Dibayar</div>
-              <div class="ot-menu-item opt-pending {% if absen.overtime_status == 'belum_review' %}active-opt{% endif %}" onclick="setOtStatus(this,'belum_review')"><span class="dot"></span> ⏱ Belum Review</div>
-            </div>
-          </div>
-        </div>
-        {% endif %}
-        <a href="{% url 'supervisor_absensi_detail' absen.pk %}" class="btn btn-sm w-100 mt-3"
-           style="background:var(--clr-accent-light);color:#a5b4fc;border:1px solid var(--clr-accent-mid);font-size:12px;display:flex;align-items:center;justify-content:center;gap:6px">
-          👁 Lihat Detail
-        </a>
-      </div>
       {% endfor %}
     </div>
 
     {% else %}
     <div class="card"><div class="card-body text-center py-5">
       <p style="color:var(--clr-text-muted);font-size:14px;margin:0">
-        {% if search_nama %}Tidak ada staff "<strong>{{ search_nama }}</strong>" pada bulan ini.
-        {% else %}Belum ada data absensi bulan ini.{% endif %}
+        {% if search_nama %}Tidak ada staff "<strong>{{ search_nama }}</strong>" yang cocok.
+        {% else %}Belum ada data staff.{% endif %}
       </p>
     </div></div>
     {% endif %}

@@ -39,13 +39,29 @@
         <div class="col-md-4 text-md-end">
           <div style="color:var(--clr-text-muted);font-size:12px">Status</div>
           <div style="margin-top:4px">
-            {% if absensi.status == 'masuk' %}
-              <span class="badge-aktif">Sudah Masuk</span>
-            {% elif absensi.status == 'pulang' %}
-              <span class="badge-selesai">Sudah Pulang</span>
-            {% else %}
-              <span class="badge-draft">Belum Absen</span>
-            {% endif %}
+            {% with s=absensi.status sh=absensi.status_harian %}
+                {% if sh == 'I' %}
+                    <span class="badge" style="background:rgba(251,191,36,0.12);color:#fbbf24;border:1px solid rgba(251,191,36,0.25);font-size:12px;padding:5px 12px;border-radius:20px;font-weight:700"><i class="bi bi-file-text"></i> Izin</span>
+                {% elif sh == 'L' %}
+                    <span class="badge" style="background:rgba(167,139,250,0.12);color:#c4b5fd;border:1px solid rgba(167,139,250,0.25);font-size:12px;padding:5px 12px;border-radius:20px;font-weight:700"><i class="bi bi-briefcase"></i> Cuti</span>
+                {% elif sh == 'A' %}
+                    <span class="badge" style="background:rgba(248,113,113,0.12);color:#f87171;border:1px solid rgba(248,113,113,0.25);font-size:12px;padding:5px 12px;border-radius:20px;font-weight:700"><i class="bi bi-x-circle"></i> Alpa</span>
+                {% elif sh == 'DC' %}
+                    <span class="badge" style="background:rgba(56,189,248,0.12);color:#7dd3fc;border:1px solid rgba(56,189,248,0.25);font-size:12px;padding:5px 12px;border-radius:20px;font-weight:700"><i class="bi bi-heart-pulse"></i> Surat Dokter</span>
+                {% elif sh == 'LB' %}
+                    <span class="badge" style="background:rgba(255,255,255,0.05);color:var(--clr-text-muted);border:1px solid var(--clr-border);font-size:12px;padding:5px 12px;border-radius:20px;font-weight:700"><i class="bi bi-moon"></i> Libur</span>
+                {% elif s == 'masuk' %}
+                    <span class="badge-aktif" style="font-size:12px;padding:5px 12px;border-radius:20px;font-weight:700">Sudah Masuk</span>
+                {% elif s == 'pulang' %}
+                    <span class="badge-selesai" style="font-size:12px;padding:5px 12px;border-radius:20px;font-weight:700">Sudah Pulang</span>
+                {% elif s == 'terlambat' %}
+                    <span class="badge" style="background:rgba(251,191,36,0.12);color:#fbbf24;border:1px solid rgba(251,191,36,0.25);font-size:12px;padding:5px 12px;border-radius:20px;font-weight:700">Terlambat</span>
+                {% elif s == 'overtime' %}
+                    <span class="badge" style="background:rgba(251,146,60,0.12);color:#fb923c;border:1px solid rgba(251,146,60,0.25);font-size:12px;padding:5px 12px;border-radius:20px;font-weight:700">Overtime</span>
+                {% else %}
+                    <span class="badge-draft" style="font-size:12px;padding:5px 12px;border-radius:20px;font-weight:700">Belum Absen</span>
+                {% endif %}
+            {% endwith %}
           </div>
         </div>
       </div>
@@ -240,6 +256,10 @@
           {% if absensi.catatan %}
             <div style="color:var(--clr-text-secondary);font-size:13px;line-height:1.5">
               {{ absensi.catatan|linebreaks }}
+            </div>
+          {% elif absensi.izin_staff %}
+            <div style="color:var(--clr-text-secondary);font-size:13px;line-height:1.5;font-style:italic">
+              {{ absensi.izin_staff.keterangan|default:absensi.izin_staff.get_tipe_display|linebreaks }}
             </div>
           {% else %}
             <div class="text-center py-3">

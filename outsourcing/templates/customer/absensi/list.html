@@ -462,25 +462,40 @@
                             <span class="absen-status status-belum"><i class="bi bi-dash-circle"></i> Belum Absen</span>
                         {% endif %}
                     {% endwith %}
+                {% elif sd.izin %}
+                    {% if sd.izin.tipe == 'cuti' %}
+                        <span class="absen-status status-cuti"><i class="bi bi-briefcase"></i> Cuti</span>
+                    {% elif sd.izin.tipe == 'sakit' %}
+                        <span class="absen-status status-dokter"><i class="bi bi-heart-pulse"></i> Sakit</span>
+                    {% else %}
+                        <span class="absen-status status-izin"><i class="bi bi-file-text"></i> Izin</span>
+                    {% endif %}
                 {% else %}
                     <span class="absen-status status-belum"><i class="bi bi-dash-circle"></i> Belum Absen</span>
                 {% endif %}
 
                 <!-- Jam masuk / pulang -->
                 <div class="time-info">
-                    {% if sd.absensi and sd.absensi.waktu_masuk %}
-                        <div class="time-in">
-                            <i class="bi bi-box-arrow-in-right"></i>
-                            {{ sd.absensi.waktu_masuk|time:"H:i" }}
-                        </div>
+                    {% if sd.absensi %}
+                        {% if sd.absensi.waktu_masuk %}
+                            <div class="time-in">
+                                <i class="bi bi-box-arrow-in-right"></i>
+                                {{ sd.absensi.waktu_masuk|time:"H:i" }}
+                            </div>
+                        {% else %}
+                            <div class="time-dash">—</div>
+                        {% endif %}
+                        
+                        {% if sd.absensi.waktu_pulang %}
+                            <div class="time-out">
+                                <i class="bi bi-box-arrow-right"></i>
+                                {{ sd.absensi.waktu_pulang|time:"H:i" }}
+                            </div>
+                        {% endif %}
+                    {% elif sd.izin %}
+                        <div class="time-dash" style="color:var(--clr-text-muted);font-size:11px;">{{ sd.izin.get_tipe_display }}</div>
                     {% else %}
                         <div class="time-dash">—</div>
-                    {% endif %}
-                    {% if sd.absensi and sd.absensi.waktu_pulang %}
-                        <div class="time-out">
-                            <i class="bi bi-box-arrow-right"></i>
-                            {{ sd.absensi.waktu_pulang|time:"H:i" }}
-                        </div>
                     {% endif %}
                 </div>
 

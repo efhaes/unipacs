@@ -10,4 +10,4 @@ from .area_kerja import (
 )
 from .task import task_list, task_create, task_edit, task_delete
 from .customer import customer_create
-from .absensi import qr_list, qr_generate, absensi_detail, qr_nonaktifkan,absensi_rekap,izin_review,lokasi_edit,lokasi_list,lokasi_tambah,lokasi_hapus,lokasi_toggle_aktif,lokasi_detail_json,supervisor_absensi_staff_detail
+from .absensi import qr_list, absensi_detail,absensi_rekap,izin_review,lokasi_edit,lokasi_list,lokasi_tambah,lokasi_hapus,lokasi_toggle_aktif,lokasi_detail_json,supervisor_absensi_staff_detail

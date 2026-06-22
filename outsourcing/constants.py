@@ -21,9 +21,9 @@ LONGITUDE_MIN = -180.0
 LONGITUDE_MAX = 180.0
 
 # ── Radius Absensi ──────────────────────────────────────────────
-RADIUS_MIN    = 10      # meter
-RADIUS_MAX    = 1000    # meter
-RADIUS_DEFAULT = 100    # meter
+RADIUS_MIN     = 15    # meter — minimum radius lokasi absensi
+RADIUS_MAX     = 500   # meter — maksimum radius lokasi absensi
+RADIUS_DEFAULT = 50    # meter — default saat buat lokasi baru
 
 # ── Rekomendasi untuk UX ───────────────────────────────────────
 RADIUS_REKOMENDASI = {

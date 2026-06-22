@@ -1,10 +1,11 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.core.exceptions import ValidationError
-from django.core.validators import MaxValueValidator, RegexValidator,MinValueValidator
+from django.core.validators import MaxValueValidator, RegexValidator, MinValueValidator
 import uuid
 from django.utils import timezone
 import math
+from datetime import datetime
 
 
 class AktifManager(models.Manager):
@@ -51,7 +52,7 @@ class User(AbstractUser):
         default=RoleChoices.STAFF,
     )
     nama_lengkap = models.CharField(max_length=150, blank=True)
-    
+
     jenis_kelamin = models.CharField(
         max_length=1,
         choices=GenderChoices.choices,
@@ -82,7 +83,6 @@ class User(AbstractUser):
     def __str__(self):
         return f"{self.nama_lengkap or self.username} ({self.get_role_display()})"
 
-    # Helper properties
     @property
     def is_admin(self):
         return self.role == RoleChoices.ADMIN
@@ -173,7 +173,6 @@ class Perusahaan(models.Model):
     aktif   = AktifManager()
 
     def clean(self):
-        # Validasi bahwa user yang di-assign sebagai customer benar-benar role CUSTOMER
         if self.customer and self.customer.role != RoleChoices.CUSTOMER:
             raise ValidationError(
                 f"User '{self.customer}' bukan Customer. "
@@ -222,7 +221,6 @@ class SubArea(models.Model):
     """
     Sub area di dalam AreaKerja.
     Contoh: Toilet Lt.1, Lobby, Ruang Rapat, dll.
-    Berguna untuk membagi item kegiatan lebih spesifik.
     """
     area        = models.ForeignKey(
         AreaKerja,
@@ -252,8 +250,6 @@ class Task(models.Model):
     """
     Master data tugas/pekerjaan standar yang bisa di-assign ke staff.
     Contoh: Menyapu lantai, Membersihkan toilet, dll.
-    Terkait dengan Jenis Jasa (Cleaning Service, Security, dll).
-    Dikelola oleh Admin.
     """
     jenis_jasa  = models.ForeignKey(
         JenisJasa,
@@ -262,10 +258,10 @@ class Task(models.Model):
     )
     nama_task   = models.CharField(max_length=200)
     standar = models.CharField(
-            max_length=200,
-            blank=True,
-            help_text='Standar kualitas untuk task ini.',
-        )
+        max_length=200,
+        blank=True,
+        help_text='Standar kualitas untuk task ini.',
+    )
     deskripsi   = models.TextField(blank=True)
     is_active    = models.BooleanField(default=True)
     dibuat_pada = models.DateTimeField(auto_now_add=True)
@@ -291,8 +287,6 @@ class Task(models.Model):
 class KepalaSupervisorJasa(models.Model):
     """
     Menghubungkan Kepala Supervisor dengan Jenis Jasa yang dia tangani.
-    Satu Kepala Supervisor bisa pegang lebih dari satu Jenis Jasa.
-    Dibuat oleh Admin.
     """
     kepala_supervisor = models.ForeignKey(
         User,
@@ -318,14 +312,7 @@ class KepalaSupervisorJasa(models.Model):
 
 class SupervisorPerusahaan(models.Model):
     """
-    Menghubungkan Supervisor Lapangan dengan Perusahaan & Jenis Jasa
-    yang dia tangani, serta siapa Kepala Supervisor-nya.
-    Dibuat oleh Kepala Supervisor.
-
-    Validasi duplikat aktif: satu supervisor tidak bisa di-assign
-    dua kali ke perusahaan+jenis_jasa yang sama selagi keduanya aktif.
-    Constraint ini dijaga di level clean() karena unique_together
-    tidak mempertimbangkan is_active.
+    Menghubungkan Supervisor Lapangan dengan Perusahaan & Jenis Jasa.
     """
     supervisor        = models.ForeignKey(
         User,
@@ -359,7 +346,6 @@ class SupervisorPerusahaan(models.Model):
     aktif   = AktifManager()
 
     def clean(self):
-      
         if self.perusahaan_id and self.jenis_jasa_id:
             if not self.perusahaan.jenis_jasa.filter(pk=self.jenis_jasa_id).exists():
                 raise ValidationError(
@@ -393,13 +379,6 @@ class SupervisorPerusahaan(models.Model):
 class StaffSupervisor(models.Model):
     """
     Menghubungkan Staff Lapangan dengan Supervisor yang mengelolanya.
-    Dibuat oleh Supervisor Lapangan.
-    Staff hanya bisa dilihat oleh Supervisor yang memilikinya,
-    serta Kepala Supervisor dan Admin di atasnya.
-
-    Validasi: satu staff hanya boleh memiliki SATU supervisor aktif
-    di waktu yang sama. Supervisor bisa dirotasi dengan cara
-    menonaktifkan relasi lama (is_active=False) sebelum membuat yang baru.
     """
     staff       = models.ForeignKey(
         User,
@@ -421,7 +400,6 @@ class StaffSupervisor(models.Model):
     aktif   = AktifManager()
 
     def clean(self):
-        # Satu staff hanya boleh punya 1 supervisor aktif
         if self.is_active and self.staff_id:
             qs = StaffSupervisor.objects.filter(
                 staff=self.staff_id,
@@ -449,8 +427,6 @@ class StaffSupervisor(models.Model):
 class StaffTask(models.Model):
     """
     Menghubungkan Staff dengan Task yang bisa dia kerjakan.
-    Satu staff bisa memiliki banyak task (skill).
-    Dibuat oleh Supervisor Lapangan saat membuat akun staff.
     """
     staff       = models.ForeignKey(
         User,
@@ -490,11 +466,6 @@ class StatusLaporan(models.TextChoices):
 class LaporanKegiatan(models.Model):
     """
     Laporan kegiatan yang dibuat oleh Supervisor Lapangan.
-    Satu laporan mencakup satu perusahaan, satu area, dan satu jenis jasa.
-    Berisi banyak ItemKegiatan (jadwal kerja staff).
-
-    PROTEKSI: Laporan dengan status 'selesai' tidak bisa
-    diedit atau dihapus. Ini dijaga di clean() dan delete().
     """
     perusahaan    = models.ForeignKey(
         Perusahaan,
@@ -524,7 +495,7 @@ class LaporanKegiatan(models.Model):
         choices=StatusLaporan.choices,
         default=StatusLaporan.DRAFT,
     )
-    is_active       = models.BooleanField(default=True,)
+    is_active       = models.BooleanField(default=True)
     catatan         = models.TextField(blank=True)
     dibuat_pada     = models.DateTimeField(auto_now_add=True)
     diubah_pada     = models.DateTimeField(auto_now=True)
@@ -533,15 +504,11 @@ class LaporanKegiatan(models.Model):
 
     @property
     def semua_item_approved(self):
-        """True jika laporan punya item DAN semua item sudah status 'selesai'."""
         return self.item_kegiatan.exists() and not (
             self.item_kegiatan.exclude(status=StatusItem.SELESAI).exists()
         )
 
     def clean(self):
-        # ── PROTEKSI EDIT ──────────────────────────────────────────────────
-        # Laporan yang sudah selesai tidak boleh diubah sama sekali.
-        # Cek via database (bukan instance saat ini) agar tidak bisa di-bypass.
         if self.pk:
             try:
                 original = LaporanKegiatan.objects.get(pk=self.pk)
@@ -551,16 +518,14 @@ class LaporanKegiatan(models.Model):
                         "Hubungi Admin jika diperlukan koreksi."
                     )
             except LaporanKegiatan.DoesNotExist:
-                pass  # Record baru, lanjutkan validasi lain
+                pass
 
-        # ── VALIDASI AREA ──────────────────────────────────────────────────
         if self.area_id and self.perusahaan_id:
             if self.area.perusahaan_id != self.perusahaan_id:
                 raise ValidationError(
                     f"Area '{self.area}' bukan milik perusahaan '{self.perusahaan}'."
                 )
 
-        # ── VALIDASI JENIS JASA ────────────────────────────────────────────
         if self.perusahaan_id and self.jenis_jasa_id:
             if not self.perusahaan.jenis_jasa.filter(pk=self.jenis_jasa_id).exists():
                 raise ValidationError(
@@ -568,7 +533,6 @@ class LaporanKegiatan(models.Model):
                 )
 
     def delete(self, *args, **kwargs):
-        # Proteksi hapus: laporan yang sudah selesai tidak boleh dihapus
         if self.status == StatusLaporan.SELESAI:
             raise ValidationError(
                 "Laporan yang sudah selesai tidak dapat dihapus."
@@ -594,18 +558,15 @@ class LaporanKegiatan(models.Model):
 # ============================================================
 
 class StatusItem(models.TextChoices):
-    TERJADWAL   = 'terjadwal',  'Terjadwal'
-    ON_PROGRESS = 'on_progress','On Progress'
-    MENUNGGU_APPROVAL  = 'menunggu_approval',   'Menunggu Approval'
-    SELESAI     = 'selesai',    'Selesai'
+    TERJADWAL          = 'terjadwal',          'Terjadwal'
+    ON_PROGRESS        = 'on_progress',        'On Progress'
+    MENUNGGU_APPROVAL  = 'menunggu_approval',  'Menunggu Approval'
+    SELESAI            = 'selesai',            'Selesai'
 
 
 class ItemKegiatan(models.Model):
     """
     Item kegiatan adalah tugas spesifik untuk satu atau lebih staff di satu sub area.
-    Dibuat oleh Supervisor Lapangan sebagai jadwal harian staff.
-    Staff mengisi: jam mulai, jam selesai, foto on progress, foto after.
-    is_insidental = True jika pekerjaan ini di luar jadwal (dibuat sendiri oleh staff).
     """
     laporan     = models.ForeignKey(
         LaporanKegiatan,
@@ -660,9 +621,10 @@ class ItemKegiatan(models.Model):
         help_text='Catatan tambahan dari staff lapangan.',
     )
     waktu_selesai_aktual = models.DateTimeField(
-    null=True,
-    blank=True,
-    help_text='Waktu aktual saat staff mengupload foto after (otomatis diisi sistem).',)
+        null=True,
+        blank=True,
+        help_text='Waktu aktual saat staff mengupload foto after (otomatis diisi sistem).',
+    )
     keterangan_overtime = models.TextField(
         blank=True,
         help_text='Wajib diisi jika keterlambatan lebih dari 1 jam.',
@@ -671,31 +633,25 @@ class ItemKegiatan(models.Model):
     diubah_pada     = models.DateTimeField(auto_now=True)
 
     def clean(self):
-        # ── JAM SELESAI ────────────────────────────────────────────────────
         if self.jam_mulai and self.jam_selesai:
             if self.jam_selesai <= self.jam_mulai:
                 raise ValidationError("Jam selesai harus setelah jam mulai.")
 
-        # ── SUB AREA ───────────────────────────────────────────────────────
         if self.sub_area_id and self.laporan_id:
             if self.sub_area.area_id != self.laporan.area_id:
                 raise ValidationError(
                     f"Sub area '{self.sub_area}' bukan bagian dari area '{self.laporan.area}'."
                 )
 
-        # ── TASK ───────────────────────────────────────────────────────────
         if self.task_id and self.laporan_id:
             if self.task.jenis_jasa_id != self.laporan.jenis_jasa_id:
                 raise ValidationError(
                     f"Task '{self.task}' bukan bagian dari jenis jasa '{self.laporan.jenis_jasa}'."
                 )
 
-        # ── VALIDASI STAFF (hanya saat sudah tersimpan / ada pk) ──────────
         if self.pk and self.laporan_id:
             supervisor = self.laporan.supervisor
-
             for staff_member in self.staff.all():
-                # Staff harus terdaftar di bawah supervisor pembuat laporan
                 if not self.is_insidental:
                     is_staff_valid = StaffSupervisor.objects.filter(
                         staff=staff_member,
@@ -707,8 +663,6 @@ class ItemKegiatan(models.Model):
                             f"Staff '{staff_member}' tidak terdaftar di bawah "
                             f"supervisor '{supervisor}'."
                         )
-
-                # Staff harus memiliki skill untuk task yang dipilih
                 if self.task_id and not self.is_insidental:
                     has_skill = StaffTask.objects.filter(
                         staff=staff_member,
@@ -724,12 +678,10 @@ class ItemKegiatan(models.Model):
     def __str__(self):
         if not self.pk:
             return self.nama_item or "Item Kegiatan (unsaved)"
-
         try:
             staff_names = ", ".join([s.nama_lengkap or s.username for s in self.staff.all()])
         except Exception:
             staff_names = "Staff"
-
         if self.task_id:
             return f"{self.task.nama_task} — {staff_names} ({self.tanggal})"
         return f"{self.nama_item} — {staff_names} ({self.tanggal})"
@@ -774,14 +726,11 @@ class FotoItemKegiatan(models.Model):
     diunggah_pada = models.DateTimeField(auto_now_add=True)
 
     def clean(self):
-        # item belum diset saat form.save(commit=False) — skip validasi
-        if not self.item_id:                          # ← baris baru
-            return                                    # ← baris baru
-
+        if not self.item_id:
+            return
         existing = FotoItemKegiatan.objects.filter(item=self.item)
         if self.pk:
             existing = existing.exclude(pk=self.pk)
-
         if existing.count() >= self.MAKS_FOTO:
             raise ValidationError(
                 f"Maksimal {self.MAKS_FOTO} foto tambahan per item kegiatan."
@@ -799,18 +748,20 @@ class FotoItemKegiatan(models.Model):
         return f"Foto {self.get_jenis_display()} — {self.item.nama_item}"
 
 
-
+# ============================================================
+# ABSENSI — Helper
+# ============================================================
+ 
 def hitung_jarak_meter(lat1, lon1, lat2, lon2) -> float:
     """
     Hitung jarak dua koordinat (decimal degrees) dalam meter.
-    Menggunakan formula Haversine — akurasi cukup untuk radius 50–500m.
+    Menggunakan formula Haversine — akurasi cukup untuk radius 15–500m.
     """
-    R = 6_371_000  # radius bumi (meter)
+    R = 6_371_000
     phi1     = math.radians(float(lat1))
     phi2     = math.radians(float(lat2))
     d_phi    = math.radians(float(lat2) - float(lat1))
     d_lambda = math.radians(float(lon2) - float(lon1))
- 
     a = (
         math.sin(d_phi / 2) ** 2
         + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
@@ -818,9 +769,9 @@ def hitung_jarak_meter(lat1, lon1, lat2, lon2) -> float:
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
  
  
-# ---------------------------------------------------------------------------
-# Model — Lokasi Absensi
-# ---------------------------------------------------------------------------
+# ============================================================
+# ABSENSI — Lokasi
+# ============================================================
  
 from outsourcing.constants import (
     KOORDINAT_DECIMAL_PLACES,
@@ -829,17 +780,16 @@ from outsourcing.constants import (
     RADIUS_MAX,
     RADIUS_DEFAULT,
 )
-
+ 
+ 
 class LokasiAbsensi(models.Model):
-    supervisor    = models.ForeignKey(
-            User,
-            on_delete=models.CASCADE,
-            related_name='lokasi_yang_dibuat',
-            limit_choices_to={'role': RoleChoices.SUPERVISOR},
-        )    
+    supervisor   = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='lokasi_yang_dibuat',
+        limit_choices_to={'role': RoleChoices.SUPERVISOR},
+    )
     nama         = models.CharField(max_length=120)
-    
-    # 🔧 Reference constants — mudah diubah global
     latitude     = models.DecimalField(
         max_digits=KOORDINAT_MAX_DIGITS,
         decimal_places=KOORDINAT_DECIMAL_PLACES,
@@ -848,7 +798,6 @@ class LokasiAbsensi(models.Model):
         max_digits=KOORDINAT_MAX_DIGITS,
         decimal_places=KOORDINAT_DECIMAL_PLACES,
     )
-    
     radius_meter = models.PositiveIntegerField(
         default=RADIUS_DEFAULT,
         validators=[
@@ -856,80 +805,235 @@ class LokasiAbsensi(models.Model):
             MaxValueValidator(RADIUS_MAX),
         ]
     )
-    
     is_active    = models.BooleanField(default=True)
     diperbarui   = models.DateTimeField(auto_now=True)
     dibuat_pada  = models.DateTimeField(auto_now_add=True)
-    
+ 
     class Meta:
-        verbose_name = 'Lokasi Absensi'
+        verbose_name        = 'Lokasi Absensi'
         verbose_name_plural = 'Lokasi Absensi'
-        ordering = ['nama']
-    
+        ordering            = ['nama']
+ 
     def __str__(self):
         return f"{self.nama} (±{self.radius_meter}m)"
-    
+ 
     def validasi_koordinat(self, lat_staff, lon_staff) -> tuple[bool, float]:
         jarak = hitung_jarak_meter(self.latitude, self.longitude, lat_staff, lon_staff)
         return jarak <= self.radius_meter, round(jarak, 1)
-
+ 
+ 
+# ============================================================
+# ABSENSI — Choices
+# ============================================================
+ 
 class OvertimeStatusChoices(models.TextChoices):
     BELUM_REVIEW = 'belum_review', 'Belum Direview'
     PAID         = 'paid',         'Dibayar'
     UNPAID       = 'unpaid',       'Tidak Dibayar'
-
-
+ 
+ 
 class AbsensiStatusChoices(models.TextChoices):
     BELUM_ABSEN = 'belum_absen', 'Belum Absen'
-    MASUK       = 'masuk', 'Masuk'
-    PULANG      = 'pulang', 'Pulang'
-    TERLAMBAT   = 'terlambat', 'Terlambat'
-    OVERTIME    = 'overtime', 'Overtime'
-    
+    MASUK       = 'masuk',       'Masuk'
+    PULANG      = 'pulang',      'Pulang'
+    TERLAMBAT   = 'terlambat',   'Terlambat'
+    OVERTIME    = 'overtime',    'Overtime'
+ 
+ 
 class StatusHarianChoices(models.TextChoices):
-    HADIR   = 'P',  'Hadir'
-    CUTI    = 'L',  'Cuti'
-    IZIN    = 'I',  'Izin'
-    ALPA    = 'A',  'Alpa'
-    DOKTER  = 'DC', 'Surat Dokter'
-    LIBUR   = 'LB', 'Libur'
-
+    HADIR  = 'P',  'Hadir'
+    CUTI   = 'L',  'Cuti'
+    IZIN   = 'I',  'Izin'
+    ALPA   = 'A',  'Alpa'
+    DOKTER = 'DC', 'Surat Dokter'
+    LIBUR  = 'LB', 'Libur'
+ 
+ 
 class QRTypeChoices(models.TextChoices):
     MASUK  = 'masuk',  'Masuk'
     PULANG = 'pulang', 'Pulang'
-
-
+ 
+ 
+# ============================================================
+# ABSENSI — QR Permanen
+# ============================================================
+ 
 class QRAbsensi(models.Model):
-    lokasi = models.ForeignKey('LokasiAbsensi',on_delete=models.SET_NULL,null=True, blank=True,related_name='qr_codes',help_text="Kosongkan jika absensi tidak perlu validasi lokasi.",)
-    supervisor     = models.ForeignKey(User, on_delete=models.CASCADE, related_name='qr_dibuat', limit_choices_to={'role': RoleChoices.SUPERVISOR})
-    token          = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
-    tanggal        = models.DateField(default=timezone.localdate)
-    tipe           = models.CharField(max_length=10, choices=QRTypeChoices.choices)
-    berlaku_hingga = models.DateTimeField()
-    jam_berlaku_mulai = models.DateTimeField(null=True, blank=True)  # earliest valid scan time for QR pulang
-    is_active      = models.BooleanField(default=True)
-    dibuat_pada    = models.DateTimeField(auto_now_add=True)
-
-    def is_valid(self):
-        now = timezone.now()
-        if not self.is_active:
-            return False, 'QR tidak aktif.'
-        if now > self.berlaku_hingga:
-            return False, 'QR sudah expired.'
-        # Remove time restriction - QR can be scanned anytime within validity period
-        return True, None
-
-    def __str__(self):
-        return f"QR {self.tipe} — {self.supervisor.nama_lengkap or self.supervisor.username} — {self.tanggal}"
-    
+    """
+    QR Permanen — 1 supervisor hanya punya 1 QR masuk + 1 QR pulang.
+    Tidak pernah expired, hanya bisa dinonaktifkan manual oleh supervisor.
+    Lokasi bisa diubah kapan saja tanpa regenerasi QR.
+    """
+    lokasi = models.ForeignKey(
+        'LokasiAbsensi',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='qr_codes',
+        help_text="Kosongkan jika absensi tidak perlu validasi lokasi.",
+    )
+    supervisor  = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='qr_dibuat',
+        limit_choices_to={'role': RoleChoices.SUPERVISOR},
+    )
+    token       = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    tipe        = models.CharField(max_length=10, choices=QRTypeChoices.choices)
+    is_active   = models.BooleanField(default=True)
+    dibuat_pada = models.DateTimeField(auto_now_add=True)
+    diperbarui  = models.DateTimeField(auto_now=True)
+ 
     class Meta:
-        verbose_name   = 'QR Absensi'
-        unique_together = ['supervisor', 'tanggal', 'tipe']  # 1 QR masuk + 1 QR pulang per supervisor per hari
-        ordering            = ['-tanggal', 'tipe']
-
-
+        verbose_name    = 'QR Absensi'
+        unique_together = [['supervisor', 'tipe']]  # 1 QR masuk + 1 QR pulang per supervisor selamanya
+        ordering        = ['supervisor', 'tipe']
+ 
+    def is_valid(self):
+        """QR valid selama is_active=True — tidak ada expiry."""
+        if not self.is_active:
+            return False, 'QR tidak aktif. Hubungi supervisor.'
+        return True, None
+ 
+    def __str__(self):
+        nama = self.supervisor.nama_lengkap or self.supervisor.username
+        return f"QR {self.get_tipe_display()} — {nama} ({'Aktif' if self.is_active else 'Nonaktif'})"
+ 
+ 
+# ============================================================
+# ABSENSI — Jadwal Kerja
+# ============================================================
+ 
+class HariChoices(models.IntegerChoices):
+    SENIN  = 0, 'Senin'
+    SELASA = 1, 'Selasa'
+    RABU   = 2, 'Rabu'
+    KAMIS  = 3, 'Kamis'
+    JUMAT  = 4, 'Jumat'
+    SABTU  = 5, 'Sabtu'
+    MINGGU = 6, 'Minggu'
+ 
+ 
+class JadwalKerja(models.Model):
+    """
+    Jadwal kerja per hari per supervisor.
+    Berlaku untuk semua staff di bawah supervisor tersebut.
+ 
+    Hari yang tidak dikonfigurasi = di luar jadwal resmi.
+    Staff tetap bisa scan, tapi wajib isi alasan (KeteranganAbsensi).
+ 
+    Contoh setup default:
+      Senin–Jumat : 07:00 – 17:15
+      Sabtu       : 07:00 – 15:00
+      Minggu      : tidak dikonfigurasi
+    """
+    supervisor  = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='jadwal_kerja',
+        limit_choices_to={'role': RoleChoices.SUPERVISOR},
+    )
+    hari        = models.IntegerField(choices=HariChoices.choices)
+    jam_masuk   = models.TimeField(help_text="Jam masuk resmi, contoh: 07:00")
+    jam_pulang  = models.TimeField(help_text="Jam pulang resmi, contoh: 17:15")
+    is_active   = models.BooleanField(default=True)
+    dibuat_pada = models.DateTimeField(auto_now_add=True)
+    diperbarui  = models.DateTimeField(auto_now=True)
+ 
+    class Meta:
+        verbose_name        = 'Jadwal Kerja'
+        verbose_name_plural = 'Jadwal Kerja'
+        unique_together     = [['supervisor', 'hari']]
+        ordering            = ['supervisor', 'hari']
+ 
+    def clean(self):
+        if self.jam_masuk and self.jam_pulang:
+            if self.jam_pulang <= self.jam_masuk:
+                raise ValidationError("Jam pulang harus setelah jam masuk.")
+ 
+    def __str__(self):
+        nama = self.supervisor.nama_lengkap or self.supervisor.username
+        return (
+            f"{nama} — {self.get_hari_display()}: "
+            f"{self.jam_masuk.strftime('%H:%M')} – {self.jam_pulang.strftime('%H:%M')}"
+        )
+ 
+ 
+# ============================================================
+# ABSENSI — Keterangan (Terlambat / Pulang Cepat / Luar Jadwal)
+# ============================================================
+ 
+class TipeKeteranganChoices(models.TextChoices):
+    TERLAMBAT      = 'terlambat',    'Terlambat Masuk'
+    PULANG_CEPAT   = 'pulang_cepat', 'Pulang Lebih Awal'
+    DI_LUAR_JADWAL = 'luar_jadwal',  'Di Luar Jadwal Kerja'
+ 
+ 
+class StatusKeteranganChoices(models.TextChoices):
+    PENDING  = 'pending',  'Menunggu Persetujuan'
+    APPROVED = 'approved', 'Disetujui'
+    REJECTED = 'rejected', 'Ditolak'
+ 
+ 
+class KeteranganAbsensi(models.Model):
+    """
+    Catatan alasan ketika staff scan di luar kondisi normal:
+      - Terlambat masuk  : waktu scan masuk > jam_masuk JadwalKerja
+      - Pulang lebih awal: waktu scan pulang < jam_pulang JadwalKerja
+      - Di luar jadwal   : scan di hari yang tidak ada JadwalKerja
+ 
+    Setiap keterangan perlu approval supervisor.
+    """
+    absensi     = models.ForeignKey(
+        'Absensi',
+        on_delete=models.CASCADE,
+        related_name='keterangan_set',
+    )
+    tipe        = models.CharField(max_length=20, choices=TipeKeteranganChoices.choices)
+    alasan      = models.TextField(help_text="Alasan wajib diisi oleh staff saat scan.")
+ 
+    # Selisih menit untuk keperluan display di rekap
+    # Positif  = terlambat masuk atau overtime
+    # Negatif  = pulang lebih awal
+    selisih_menit = models.IntegerField(
+        default=0,
+        help_text="Selisih menit terhadap jadwal resmi.",
+    )
+ 
+    status             = models.CharField(
+        max_length=20,
+        choices=StatusKeteranganChoices.choices,
+        default=StatusKeteranganChoices.PENDING,
+    )
+    catatan_supervisor = models.TextField(blank=True)
+    direview_oleh      = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='keterangan_reviews',
+    )
+    direview_pada      = models.DateTimeField(null=True, blank=True)
+    dibuat_pada        = models.DateTimeField(auto_now_add=True)
+ 
+    class Meta:
+        verbose_name        = 'Keterangan Absensi'
+        verbose_name_plural = 'Keterangan Absensi'
+        ordering            = ['-dibuat_pada']
+        unique_together     = [['absensi', 'tipe']]  # 1 keterangan per tipe per absensi
+ 
+    def __str__(self):
+        nama = self.absensi.staff.nama_lengkap or self.absensi.staff.username
+        return (
+            f"{self.get_tipe_display()} — {nama} "
+            f"({self.absensi.tanggal}) [{self.get_status_display()}]"
+        )
+ 
+ 
+# ============================================================
+# ABSENSI — Record Harian
+# ============================================================
+ 
 class Absensi(models.Model):
-    # ── Relasi ──────────────────────────────
+    # ── Relasi ──────────────────────────────────────────────
     qr_masuk  = models.ForeignKey(
         QRAbsensi, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='absensi_masuk',
@@ -940,7 +1044,7 @@ class Absensi(models.Model):
     )
     staff = models.ForeignKey(User, on_delete=models.CASCADE)
  
-    # ── Waktu & Lokasi ───────────────────────
+    # ── Waktu & Lokasi ───────────────────────────────────────
     tanggal      = models.DateField()
     waktu_masuk  = models.DateTimeField(null=True, blank=True)
     lat_masuk    = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
@@ -949,7 +1053,7 @@ class Absensi(models.Model):
     lat_pulang   = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     lon_pulang   = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
  
-    # ── Status ───────────────────────────────
+    # ── Status ───────────────────────────────────────────────
     status = models.CharField(
         max_length=20,
         choices=AbsensiStatusChoices.choices,
@@ -962,7 +1066,7 @@ class Absensi(models.Model):
         blank=True,
     )
  
-    # ── Overtime ─────────────────────────────
+    # ── Overtime ─────────────────────────────────────────────
     is_overtime          = models.BooleanField(default=False)
     overtime_status      = models.CharField(
         max_length=20,
@@ -978,19 +1082,19 @@ class Absensi(models.Model):
     )
     overtime_reviewed_at = models.DateTimeField(null=True, blank=True)
  
-    # ── Izin Pulang Awal ─────────────────────
+    # ── Izin Pulang Awal (legacy — dipertahankan, digantikan KeteranganAbsensi) ──
     izin_pulang_awal       = models.BooleanField(default=False)
     keterangan_izin_pulang = models.TextField(blank=True)
  
-    # ── Catatan & Timestamp ──────────────────
+    # ── Catatan & Timestamp ──────────────────────────────────
     catatan     = models.TextField(blank=True)
     dibuat_pada = models.DateTimeField(auto_now_add=True)
     diubah_pada = models.DateTimeField(auto_now=True)
  
-    # ── Threshold Overtime ───────────────────
-    THRESHOLD_OT_MENIT = 60  # 1 jam setelah jam pulang resmi
+    # ── Threshold Overtime ───────────────────────────────────
+    THRESHOLD_OT_MENIT = 60  # menit setelah jam pulang resmi
  
-    # ── Properties ───────────────────────────
+    # ── Properties ───────────────────────────────────────────
     @property
     def sudah_masuk(self):
         return self.waktu_masuk is not None
@@ -999,13 +1103,13 @@ class Absensi(models.Model):
     def sudah_pulang(self):
         return self.waktu_pulang is not None
  
-    # ── Methods ───────────────────────────────
+    # ── Methods ──────────────────────────────────────────────
     def durasi_kerja(self):
         if self.waktu_masuk and self.waktu_pulang:
             return self.waktu_pulang - self.waktu_masuk
         return None
  
-    @property                  # ← FIX: @property supaya {{ absen.durasi_str }} bekerja di template
+    @property
     def durasi_str(self):
         durasi = self.durasi_kerja()
         if not durasi:
@@ -1017,14 +1121,40 @@ class Absensi(models.Model):
             return f"{jam}j {menit}m"
         return f"{menit}m"
  
+    def _get_jadwal(self):
+        """
+        Ambil JadwalKerja supervisor untuk hari absensi ini.
+        Return None jika tidak ada jadwal (hari libur/tidak dikonfigurasi).
+        """
+        if not self.qr_pulang:
+            return None
+        try:
+            return JadwalKerja.objects.get(
+                supervisor=self.qr_pulang.supervisor,
+                hari=self.tanggal.weekday(),
+                is_active=True,
+            )
+        except JadwalKerja.DoesNotExist:
+            return None
+ 
     def hitung_overtime_menit(self):
-        """Hitung overtime berdasarkan jam pulang resmi dari QR supervisor."""
-        if not self.waktu_pulang or not self.qr_pulang:
+        """
+        Hitung overtime berdasarkan jam pulang resmi dari JadwalKerja supervisor.
+        Return 0 jika tidak ada jadwal atau belum pulang.
+        """
+        if not self.waktu_pulang:
             return 0
-        jam_pulang_resmi = self.qr_pulang.jam_berlaku_mulai
-        if not jam_pulang_resmi:
+ 
+        jadwal = self._get_jadwal()
+        if not jadwal:
             return 0
-        selisih_menit = int((self.waktu_pulang - jam_pulang_resmi).total_seconds() / 60)
+ 
+        jam_pulang_resmi = timezone.make_aware(
+            datetime.combine(self.tanggal, jadwal.jam_pulang)
+        )
+        selisih_menit = int(
+            (self.waktu_pulang - jam_pulang_resmi).total_seconds() / 60
+        )
         return selisih_menit if selisih_menit >= self.THRESHOLD_OT_MENIT else 0
  
     def update_overtime(self):
@@ -1058,60 +1188,78 @@ class Absensi(models.Model):
             models.Index(fields=['staff', 'tanggal'],  name='idx_absensi_staff_tgl'),
         ]
  
+ 
+# ============================================================
+# ABSENSI — Izin Staff
+# ============================================================
+ 
 class TipeIzinChoices(models.TextChoices):
     SAKIT           = 'sakit',    'Sakit'
     CUTI            = 'cuti',     'Cuti'
     URUSAN_KELUARGA = 'keluarga', 'Urusan Keluarga'
     LAINNYA         = 'lainnya',  'Lainnya'
-
+ 
+ 
 class StatusIzinChoices(models.TextChoices):
     PENDING  = 'pending',  'Menunggu Persetujuan'
     APPROVED = 'approved', 'Disetujui'
     REJECTED = 'rejected', 'Ditolak'
-
+ 
+ 
 class IzinStaff(models.Model):
-    staff           = models.ForeignKey(User, on_delete=models.CASCADE, related_name='izin')
-    tipe            = models.CharField(max_length=20, choices=TipeIzinChoices.choices)
-    tanggal_mulai   = models.DateField()
-    tanggal_selesai = models.DateField()
-    keterangan      = models.TextField(blank=True)
-    lampiran        = models.FileField(upload_to='izin/', null=True, blank=True)
-    status          = models.CharField(max_length=20, choices=StatusIzinChoices.choices, default=StatusIzinChoices.PENDING)
+    staff              = models.ForeignKey(User, on_delete=models.CASCADE, related_name='izin')
+    tipe               = models.CharField(max_length=20, choices=TipeIzinChoices.choices)
+    tanggal_mulai      = models.DateField()
+    tanggal_selesai    = models.DateField()
+    keterangan         = models.TextField(blank=True)
+    lampiran           = models.FileField(upload_to='izin/', null=True, blank=True)
+    status             = models.CharField(
+        max_length=20,
+        choices=StatusIzinChoices.choices,
+        default=StatusIzinChoices.PENDING,
+    )
     catatan_supervisor = models.TextField(blank=True)
-    direview_oleh   = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='izin_reviews')
-    direview_pada   = models.DateTimeField(null=True, blank=True)
-    dibuat_pada     = models.DateTimeField(auto_now_add=True)
-
+    direview_oleh      = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='izin_reviews',
+    )
+    direview_pada      = models.DateTimeField(null=True, blank=True)
+    dibuat_pada        = models.DateTimeField(auto_now_add=True)
+ 
     class Meta:
         verbose_name        = 'Izin Staff'
         verbose_name_plural = 'Izin Staff'
         ordering            = ['-dibuat_pada']
-
+ 
     def __str__(self):
         nama = self.staff.nama_lengkap or self.staff.username
         return f"Izin {self.get_tipe_display()} — {nama} ({self.tanggal_mulai} s/d {self.tanggal_selesai})"
-
+ 
     @property
     def jumlah_hari(self):
         return (self.tanggal_selesai - self.tanggal_mulai).days + 1
-
-
+ 
+ 
+# ============================================================
+# ABSENSI — Hari Libur Nasional (Cache)
+# ============================================================
+ 
 class HariLiburNasional(models.Model):
     """
     Cache hari libur nasional Indonesia dari API libur.deno.dev.
-    Data di-refresh otomatis saat generate PDF jika belum ada data
-    untuk tahun/bulan tersebut, atau jika cache sudah lebih dari 30 hari.
     """
-    tanggal      = models.DateField(unique=True)
-    nama_libur   = models.CharField(max_length=200)
-    tahun        = models.IntegerField(db_index=True)
-    bulan        = models.IntegerField()
-    dibuat_pada  = models.DateTimeField(auto_now_add=True)
-    diubah_pada  = models.DateTimeField(auto_now=True)
-
+    tanggal     = models.DateField(unique=True)
+    nama_libur  = models.CharField(max_length=200)
+    tahun       = models.IntegerField(db_index=True)
+    bulan       = models.IntegerField()
+    dibuat_pada = models.DateTimeField(auto_now_add=True)
+    diubah_pada = models.DateTimeField(auto_now=True)
+ 
     def __str__(self):
         return f"{self.tanggal} — {self.nama_libur}"
-
+ 
     class Meta:
         verbose_name        = 'Hari Libur Nasional'
         verbose_name_plural = 'Hari Libur Nasional'
@@ -1119,19 +1267,18 @@ class HariLiburNasional(models.Model):
         indexes             = [
             models.Index(fields=['tahun', 'bulan'], name='idx_libur_tahun_bulan'),
         ]
-
-
+ 
+ 
 class CacheMetaLibur(models.Model):
     """
-    Menyimpan metadata kapan terakhir kali data libur di-fetch dari API
-    untuk setiap kombinasi tahun-bulan. Digunakan untuk menentukan
-    apakah perlu re-fetch atau cukup pakai cache.
+    Metadata kapan terakhir data libur di-fetch dari API per tahun-bulan.
     """
     tahun        = models.IntegerField()
     bulan        = models.IntegerField()
     last_fetched = models.DateTimeField(auto_now=True)
     fetch_sukses = models.BooleanField(default=True)
-
+ 
     class Meta:
         unique_together = ['tahun', 'bulan']
         verbose_name    = 'Cache Meta Libur'
+ 

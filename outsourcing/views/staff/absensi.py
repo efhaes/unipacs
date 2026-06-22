@@ -1,242 +1,423 @@
-# views.py (staff)
+"""
+views/absensi_staff.py
+=======================
+Views untuk STAFF — proses scan QR & absen masuk/pulang.
+
+Flow Scan (per kesepakatan):
+  MASUK  → cek QR aktif → cek lokasi GPS → cek sudah masuk? →
+           bandingkan now() vs JadwalKerja.jam_masuk →
+           terlambat? → simpan KeteranganAbsensi (PENDING) →
+           simpan Absensi(waktu_masuk, status)
+
+  PULANG → cek QR aktif → cek lokasi GPS → cek sudah masuk? →
+           bandingkan now() vs JadwalKerja.jam_pulang →
+           pulang cepat? → simpan KeteranganAbsensi (PENDING) →
+           hitung overtime → simpan Absensi(waktu_pulang)
+
+  Tidak ada jadwal hari itu → scan boleh, tapi wajib isi alasan
+  (tipe=DI_LUAR_JADWAL), langsung pending approval supervisor.
+"""
+
+from datetime import datetime
 
 from django.shortcuts import render, get_object_or_404
-from django.http import HttpResponseForbidden, JsonResponse
-from django.urls import reverse
+from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.timezone import localtime
+from django.views.decorators.http import require_POST
+from django.db import transaction
 
-from outsourcing.models import (
-    QRAbsensi, QRTypeChoices,
-    Absensi, AbsensiStatusChoices, OvertimeStatusChoices,
-    StaffSupervisor, IzinStaff,
-)
 from outsourcing.decorators import staff_required
+from outsourcing.models import (
+    QRAbsensi,
+    Absensi, AbsensiStatusChoices, StatusHarianChoices,
+    KeteranganAbsensi, TipeKeteranganChoices, StatusKeteranganChoices,
+    JadwalKerja,
+)
+from outsourcing.forms import KeteranganAbsensiForm
 
+
+# ─────────────────────────────────────────────
+# SCAN — Entry point staff (GET publik)
+# ─────────────────────────────────────────────
 
 @staff_required
-def qr_scan_page(request):
-    return render(request, 'staff/absensi/qr_scan.html')
+def absensi_scan(request, token):
+    """
+    Staff membuka URL QR → halaman scan muncul.
+    Validasi QR aktif di sini; proses absen di view terpisah (POST).
+    """
+    qr = get_object_or_404(QRAbsensi, token=token)
 
-
-@staff_required
-def qr_scan_landing(request, token):
-    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-
-    if not is_ajax:
-        from django.shortcuts import redirect
-        return redirect('qr_scan_page')
-
-    if not request.user.is_staff_lapangan:
-        return JsonResponse({'success': False, 'error': 'Hanya staff lapangan yang bisa absen.'})
-
-    qr_obj = get_object_or_404(QRAbsensi, token=token)
-
-    valid, alasan = qr_obj.is_valid()
+    valid, err = qr.is_valid()
     if not valid:
-        return JsonResponse({
-            'success'   : False,
-            'error'     : alasan,
-            'tipe'      : qr_obj.tipe,
-            'supervisor': qr_obj.supervisor.nama_lengkap or qr_obj.supervisor.username,
-        })
+        return render(request, 'absensi/scan_error.html', {'pesan': err})
 
-    hari_ini  = timezone.localdate()
-    terdaftar = StaffSupervisor.objects.filter(
-        staff      = request.user,
-        supervisor = qr_obj.supervisor,
-        is_active  = True,
-    ).exists()
+    hari_ini = timezone.localdate()
+    absensi  = Absensi.objects.filter(staff=request.user, tanggal=hari_ini).first()
 
-    if not terdaftar:
-        return JsonResponse({
-            'success'   : False,
-            'error'     : 'Kamu tidak terdaftar di bawah supervisor ini.',
-            'tipe'      : qr_obj.tipe,
-            'supervisor': qr_obj.supervisor.nama_lengkap or qr_obj.supervisor.username,
-        })
+    # Tentukan apakah sudah masuk / sudah pulang
+    sudah_masuk  = absensi and absensi.sudah_masuk
+    sudah_pulang = absensi and absensi.sudah_pulang
 
-    # ── Validasi Lokasi (jika QR punya lokasi) ────────────────────────
-    lat_staff = None
-    lon_staff = None
+    # Cek apakah perlu popup keterangan nanti (dihitung di client)
+    # — supervisor bisa null kalau QR baru dibuat dan supervisor belum punya jadwal
+    supervisor   = qr.supervisor
+    jadwal       = JadwalKerja.objects.filter(
+        supervisor=supervisor,
+        hari=hari_ini.weekday(),
+        is_active=True,
+    ).first()
 
-    if qr_obj.lokasi:
-        lat_staff = request.POST.get('lat') or request.GET.get('lat')
-        lon_staff = request.POST.get('lon') or request.GET.get('lon')
+    context = {
+        'qr'            : qr,
+        'absensi'       : absensi,
+        'sudah_masuk'   : sudah_masuk,
+        'sudah_pulang'  : sudah_pulang,
+        'jadwal'        : jadwal,
+        'ada_jadwal'    : jadwal is not None,
+        'jam_masuk_str' : jadwal.jam_masuk.strftime('%H:%M') if jadwal else None,
+        'jam_pulang_str': jadwal.jam_pulang.strftime('%H:%M') if jadwal else None,
+        'lokasi'        : qr.lokasi,
+    }
+    return render(request, 'absensi/scan.html', context)
 
-        if not lat_staff or not lon_staff:
-            return JsonResponse({
-                'success'      : False,
-                'need_location': True,
-                'error'        : 'Izinkan akses lokasi untuk absen di titik ini.',
-                'tipe'         : qr_obj.tipe,
-            })
 
-        try:
-            valid_lokasi, jarak = qr_obj.lokasi.validasi_koordinat(lat_staff, lon_staff)
-        except (ValueError, TypeError):
-            return JsonResponse({
-                'success': False,
-                'error'  : 'Format koordinat tidak valid.',
-                'tipe'   : qr_obj.tipe,
-            })
+# ─────────────────────────────────────────────
+# SCAN — Proses Masuk (AJAX POST)
+# ─────────────────────────────────────────────
 
-        if not valid_lokasi:
-            return JsonResponse({
-                'success': False,
-                'error'  : f'Kamu berada {jarak:.0f}m dari lokasi absen. Maksimal {qr_obj.lokasi.radius_meter}m.',
-                'tipe'   : qr_obj.tipe,
-                'jarak'  : jarak,
-                'radius' : qr_obj.lokasi.radius_meter,
-            })
+@staff_required
+@require_POST
+def absensi_proses_masuk(request, token):
+    """
+    Diproses via AJAX dari halaman scan.
+    Response JSON — template menangani popup/redirect.
+    """
+    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+        return JsonResponse({'ok': False, 'error': 'Request tidak valid.'}, status=400)
 
-    # ── Get or create absensi ──────────────────────────────────────────
+    qr = get_object_or_404(QRAbsensi, token=token)
+
+    # 1. Cek QR aktif
+    valid, err = qr.is_valid()
+    if not valid:
+        return JsonResponse({'ok': False, 'error': err})
+
+    staff    = request.user
+    hari_ini = timezone.localdate()
+    now      = timezone.now()
+
+    # 2. Cek sudah absen masuk hari ini
     absensi, _ = Absensi.objects.get_or_create(
-        staff   = request.user,
-        tanggal = hari_ini,
-        defaults={'qr_masuk': None, 'qr_pulang': None},
+        staff=staff, tanggal=hari_ini,
+        defaults={
+            'status'       : AbsensiStatusChoices.BELUM_ABSEN,
+            'status_harian': StatusHarianChoices.HADIR,
+            'qr_masuk'     : qr,
+        },
+    )
+    if absensi.sudah_masuk:
+        waktu = localtime(absensi.waktu_masuk).strftime('%H:%M')
+        return JsonResponse({'ok': False, 'error': f'Kamu sudah absen masuk pukul {waktu}.'})
+
+    # 3. Validasi GPS
+    lat = request.POST.get('lat')
+    lon = request.POST.get('lon')
+    lokasi = qr.lokasi
+    if lokasi and lat and lon:
+        dalam_radius, jarak = lokasi.validasi_koordinat(lat, lon)
+        if not dalam_radius:
+            return JsonResponse({
+                'ok'   : False,
+                'error': (
+                    f'Kamu berada {jarak:.0f}m dari lokasi absensi '
+                    f'(radius: {lokasi.radius_meter}m). Mendekat ke {lokasi.nama}.'
+                ),
+            })
+
+    # 4. Cek jadwal — tentukan apakah terlambat / luar jadwal
+    supervisor = qr.supervisor
+    jadwal = JadwalKerja.objects.filter(
+        supervisor=supervisor,
+        hari=hari_ini.weekday(),
+        is_active=True,
+    ).first()
+
+    now_time = localtime(now).time()
+
+    if jadwal is None:
+        # Tidak ada jadwal → luar jadwal, perlu alasan
+        return JsonResponse({
+            'ok'          : True,
+            'perlu_alasan': True,
+            'tipe_alasan' : TipeKeteranganChoices.DI_LUAR_JADWAL,
+            'selisih_menit': 0,
+            'pesan'       : 'Hari ini di luar jadwal kerja resmi. Isi alasan kehadiran.',
+        })
+
+    selisih = int(
+        (
+            datetime.combine(hari_ini, now_time) -
+            datetime.combine(hari_ini, jadwal.jam_masuk)
+        ).total_seconds() / 60
     )
 
-    if qr_obj.tipe == QRTypeChoices.MASUK:
-        absensi.qr_masuk = qr_obj
-    else:
-        absensi.qr_pulang = qr_obj
-    absensi.save(update_fields=['qr_masuk', 'qr_pulang'])
+    if selisih > 0:
+        # Terlambat → perlu alasan sebelum disimpan
+        return JsonResponse({
+            'ok'           : True,
+            'perlu_alasan' : True,
+            'tipe_alasan'  : TipeKeteranganChoices.TERLAMBAT,
+            'selisih_menit': selisih,
+            'pesan'        : f'Kamu terlambat {selisih} menit. Isi alasan terlambat.',
+        })
 
-    # ── QR MASUK ──────────────────────────────────────────────────────
-    if qr_obj.tipe == QRTypeChoices.MASUK:
+    # 5. Simpan absen masuk (tepat waktu)
+    _simpan_masuk(absensi, qr, now, lat, lon)
+
+    return JsonResponse({
+        'ok'     : True,
+        'pesan'  : f'Absen masuk berhasil pukul {localtime(now).strftime("%H:%M")}.',
+        'redirect': '/absensi/sukses/',
+    })
+
+
+@staff_required
+@require_POST
+def absensi_konfirmasi_masuk(request, token):
+    """
+    Dipanggil setelah staff mengisi popup alasan (terlambat / luar jadwal).
+    Menerima alasan, simpan KeteranganAbsensi + Absensi.
+    """
+    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+        return JsonResponse({'ok': False, 'error': 'Request tidak valid.'}, status=400)
+
+    qr = get_object_or_404(QRAbsensi, token=token)
+    valid, err = qr.is_valid()
+    if not valid:
+        return JsonResponse({'ok': False, 'error': err})
+
+    form = KeteranganAbsensiForm(request.POST)
+    if not form.is_valid():
+        return JsonResponse({'ok': False, 'errors': form.errors}, status=400)
+
+    staff    = request.user
+    hari_ini = timezone.localdate()
+    now      = timezone.now()
+    lat      = request.POST.get('lat')
+    lon      = request.POST.get('lon')
+
+    with transaction.atomic():
+        absensi, _ = Absensi.objects.get_or_create(
+            staff=staff, tanggal=hari_ini,
+            defaults={
+                'status'       : AbsensiStatusChoices.BELUM_ABSEN,
+                'status_harian': StatusHarianChoices.HADIR,
+            },
+        )
         if absensi.sudah_masuk:
+            return JsonResponse({'ok': False, 'error': 'Kamu sudah absen masuk hari ini.'})
+
+        _simpan_masuk(absensi, qr, now, lat, lon)
+
+        tipe          = form.cleaned_data['tipe']
+        alasan        = form.cleaned_data['alasan']
+        selisih_menit = form.cleaned_data.get('selisih_menit') or 0
+
+        KeteranganAbsensi.objects.create(
+            absensi      = absensi,
+            tipe         = tipe,
+            alasan       = alasan,
+            selisih_menit= selisih_menit,
+            status       = StatusKeteranganChoices.PENDING,
+        )
+
+    return JsonResponse({
+        'ok'     : True,
+        'pesan'  : f'Absen masuk berhasil. Alasan kamu menunggu persetujuan supervisor.',
+        'redirect': '/absensi/sukses/',
+    })
+
+
+def _simpan_masuk(absensi: Absensi, qr: QRAbsensi, now, lat, lon):
+    """Helper — update field masuk dan tentukan status."""
+    absensi.qr_masuk    = qr
+    absensi.waktu_masuk = now
+    if lat:
+        absensi.lat_masuk = lat
+    if lon:
+        absensi.lon_masuk = lon
+    absensi.status = AbsensiStatusChoices.MASUK
+    absensi.save(update_fields=[
+        'qr_masuk', 'waktu_masuk', 'lat_masuk', 'lon_masuk', 'status', 'diubah_pada',
+    ])
+
+
+# ─────────────────────────────────────────────
+# SCAN — Proses Pulang (AJAX POST)
+# ─────────────────────────────────────────────
+
+@staff_required
+@require_POST
+def absensi_proses_pulang(request, token):
+    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+        return JsonResponse({'ok': False, 'error': 'Request tidak valid.'}, status=400)
+
+    qr = get_object_or_404(QRAbsensi, token=token)
+    valid, err = qr.is_valid()
+    if not valid:
+        return JsonResponse({'ok': False, 'error': err})
+
+    staff    = request.user
+    hari_ini = timezone.localdate()
+    now      = timezone.now()
+
+    # 1. Wajib sudah masuk
+    absensi = Absensi.objects.filter(staff=staff, tanggal=hari_ini).first()
+    if not absensi or not absensi.sudah_masuk:
+        return JsonResponse({'ok': False, 'error': 'Kamu belum absen masuk hari ini.'})
+    if absensi.sudah_pulang:
+        waktu = localtime(absensi.waktu_pulang).strftime('%H:%M')
+        return JsonResponse({'ok': False, 'error': f'Kamu sudah absen pulang pukul {waktu}.'})
+
+    # 2. Validasi GPS
+    lat    = request.POST.get('lat')
+    lon    = request.POST.get('lon')
+    lokasi = qr.lokasi
+    if lokasi and lat and lon:
+        dalam_radius, jarak = lokasi.validasi_koordinat(lat, lon)
+        if not dalam_radius:
             return JsonResponse({
-                'success'      : False,
-                'error'        : 'Kamu sudah absen masuk hari ini.',
-                'tipe'         : 'masuk',
-                'already_absen': True,
-                'waktu'        : localtime(absensi.waktu_masuk).strftime('%H:%M'),
+                'ok'   : False,
+                'error': (
+                    f'Kamu berada {jarak:.0f}m dari lokasi absensi '
+                    f'(radius: {lokasi.radius_meter}m). Mendekat ke {lokasi.nama}.'
+                ),
             })
 
-        update_fields = ['waktu_masuk', 'status']
-        absensi.waktu_masuk = timezone.now()
-        absensi.status      = AbsensiStatusChoices.MASUK
+    # 3. Cek jadwal — tentukan pulang cepat / luar jadwal
+    supervisor = qr.supervisor
+    jadwal = JadwalKerja.objects.filter(
+        supervisor=supervisor,
+        hari=hari_ini.weekday(),
+        is_active=True,
+    ).first()
 
-        if lat_staff and lon_staff:
-            absensi.lat_masuk = lat_staff
-            absensi.lon_masuk = lon_staff
-            update_fields += ['lat_masuk', 'lon_masuk']
+    now_time = localtime(now).time()
 
-        absensi.save(update_fields=update_fields)
-
+    if jadwal is None:
         return JsonResponse({
-            'success'   : True,
-            'message'   : 'Absen masuk berhasil!',
-            'tipe'      : 'masuk',
-            'waktu'     : localtime(absensi.waktu_masuk).strftime('%H:%M'),
-            'supervisor': qr_obj.supervisor.nama_lengkap or qr_obj.supervisor.username,
+            'ok'           : True,
+            'perlu_alasan' : True,
+            'tipe_alasan'  : TipeKeteranganChoices.DI_LUAR_JADWAL,
+            'selisih_menit': 0,
+            'pesan'        : 'Hari ini di luar jadwal kerja resmi. Isi alasan kepulangan.',
         })
 
-    # ── QR PULANG ─────────────────────────────────────────────────────
-    elif qr_obj.tipe == QRTypeChoices.PULANG:
+    selisih = int(
+        (
+            datetime.combine(hari_ini, jadwal.jam_pulang) -
+            datetime.combine(hari_ini, now_time)
+        ).total_seconds() / 60
+    )
 
+    if selisih > 0:
+        # Pulang lebih awal → perlu alasan
+        return JsonResponse({
+            'ok'           : True,
+            'perlu_alasan' : True,
+            'tipe_alasan'  : TipeKeteranganChoices.PULANG_CEPAT,
+            'selisih_menit': selisih,
+            'pesan'        : f'Kamu pulang {selisih} menit lebih awal. Isi alasan.',
+        })
+
+    # 4. Simpan pulang (tepat / overtime)
+    _simpan_pulang(absensi, qr, now, lat, lon)
+
+    overtime_menit = absensi.hitung_overtime_menit()
+    pesan = f'Absen pulang berhasil pukul {localtime(now).strftime("%H:%M")}.'
+    if overtime_menit:
+        pesan += f' Overtime {overtime_menit} menit tercatat.'
+
+    return JsonResponse({'ok': True, 'pesan': pesan, 'redirect': '/absensi/sukses/'})
+
+
+@staff_required
+@require_POST
+def absensi_konfirmasi_pulang(request, token):
+    """
+    Staff mengisi alasan pulang cepat / luar jadwal via popup.
+    """
+    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+        return JsonResponse({'ok': False, 'error': 'Request tidak valid.'}, status=400)
+
+    qr = get_object_or_404(QRAbsensi, token=token)
+    valid, err = qr.is_valid()
+    if not valid:
+        return JsonResponse({'ok': False, 'error': err})
+
+    form = KeteranganAbsensiForm(request.POST)
+    if not form.is_valid():
+        return JsonResponse({'ok': False, 'errors': form.errors}, status=400)
+
+    staff    = request.user
+    hari_ini = timezone.localdate()
+    now      = timezone.now()
+    lat      = request.POST.get('lat')
+    lon      = request.POST.get('lon')
+
+    with transaction.atomic():
+        absensi = get_object_or_404(Absensi, staff=staff, tanggal=hari_ini)
         if not absensi.sudah_masuk:
-            return JsonResponse({
-                'success'   : False,
-                'error'     : 'Kamu belum absen masuk hari ini. Scan QR masuk terlebih dahulu.',
-                'tipe'      : 'pulang',
-                'need_masuk': True,
-            })
-
+            return JsonResponse({'ok': False, 'error': 'Kamu belum absen masuk.'})
         if absensi.sudah_pulang:
-            return JsonResponse({
-                'success'      : False,
-                'error'        : 'Kamu sudah absen pulang hari ini.',
-                'tipe'         : 'pulang',
-                'already_absen': True,
-                'waktu'        : localtime(absensi.waktu_pulang).strftime('%H:%M'),
-            })
+            return JsonResponse({'ok': False, 'error': 'Kamu sudah absen pulang hari ini.'})
 
-        now              = timezone.now()
-        jam_pulang_resmi = qr_obj.jam_berlaku_mulai
+        _simpan_pulang(absensi, qr, now, lat, lon)
 
-        is_pulang_awal = jam_pulang_resmi and now < jam_pulang_resmi
+        tipe           = form.cleaned_data['tipe']
+        alasan         = form.cleaned_data['alasan']
+        selisih_menit  = form.cleaned_data.get('selisih_menit') or 0
 
-        ot_menit = 0
-        is_ot    = False
-        if jam_pulang_resmi and not is_pulang_awal:
-            selisih  = int((now - jam_pulang_resmi).total_seconds() / 60)
-            ot_menit = selisih if selisih >= Absensi.THRESHOLD_OT_MENIT else 0
-            is_ot    = ot_menit > 0
+        KeteranganAbsensi.objects.create(
+            absensi      = absensi,
+            tipe         = tipe,
+            alasan       = alasan,
+            selisih_menit= selisih_menit,
+            status       = StatusKeteranganChoices.PENDING,
+        )
 
-        # ── GET → kirim flag, tunggu input dari modal ──────────────
-        if request.method == 'GET':
-            if is_pulang_awal:
-                return JsonResponse({
-                    'success'         : False,
-                    'need_izin_pulang': True,
-                    'jam_pulang_resmi': localtime(jam_pulang_resmi).strftime('%H:%M'),
-                    'jam_sekarang'    : localtime(now).strftime('%H:%M'),
-                })
-            if is_ot:
-                return JsonResponse({
-                    'success'         : False,
-                    'need_keterangan' : True,
-                    'overtime_menit'  : ot_menit,
-                    'overtime_str'    : f"{ot_menit // 60}j {ot_menit % 60}m",
-                    'jam_pulang_resmi': localtime(jam_pulang_resmi).strftime('%H:%M'),
-                })
+    return JsonResponse({
+        'ok'     : True,
+        'pesan'  : 'Absen pulang berhasil. Alasan kamu menunggu persetujuan supervisor.',
+        'redirect': '/absensi/sukses/',
+    })
 
-        # ── POST / GET tepat waktu → simpan ────────────────────────
-        update_fields = ['waktu_pulang', 'status']
 
-        if is_pulang_awal:
-            keterangan_izin = request.POST.get('keterangan_izin', '').strip()
-            if not keterangan_izin:
-                return JsonResponse({
-                    'success': False,
-                    'error'  : 'Keterangan izin pulang awal wajib diisi.',
-                })
-            absensi.izin_pulang_awal       = True
-            absensi.keterangan_izin_pulang = keterangan_izin
-            update_fields += ['izin_pulang_awal', 'keterangan_izin_pulang']
+def _simpan_pulang(absensi: Absensi, qr: QRAbsensi, now, lat, lon):
+    """Helper — update field pulang, hitung overtime, save."""
+    absensi.qr_pulang    = qr
+    absensi.waktu_pulang = now
+    if lat:
+        absensi.lat_pulang = lat
+    if lon:
+        absensi.lon_pulang = lon
 
-        if is_ot:
-            keterangan_ot = request.POST.get('keterangan_overtime', '').strip()
-            if not keterangan_ot:
-                return JsonResponse({
-                    'success': False,
-                    'error'  : 'Keterangan overtime wajib diisi.',
-                })
-            absensi.is_overtime     = True
-            absensi.overtime_status = OvertimeStatusChoices.BELUM_REVIEW
-            absensi.status          = AbsensiStatusChoices.OVERTIME
-            absensi.catatan         = keterangan_ot
-            update_fields += ['is_overtime', 'overtime_status', 'catatan']
+    absensi.update_overtime()   # set is_overtime berdasarkan JadwalKerja
 
-        absensi.waktu_pulang = now
-        if not is_ot:
-            absensi.status = AbsensiStatusChoices.PULANG
+    # Tentukan status akhir
+    if absensi.is_overtime:
+        absensi.status = AbsensiStatusChoices.OVERTIME
+    else:
+        absensi.status = AbsensiStatusChoices.PULANG
 
-        if lat_staff and lon_staff:
-            absensi.lat_pulang = lat_staff
-            absensi.lon_pulang = lon_staff
-            update_fields += ['lat_pulang', 'lon_pulang']
-
-        absensi.save(update_fields=update_fields)
-
-        pesan = 'Absen pulang berhasil!'
-        if is_pulang_awal:
-            pesan += ' Izin pulang awal tercatat.'
-        elif is_ot:
-            pesan += f' Overtime {ot_menit // 60}j {ot_menit % 60}m menunggu klasifikasi supervisor.'
-
-        return JsonResponse({
-            'success'       : True,
-            'message'       : pesan,
-            'tipe'          : 'pulang',
-            'is_overtime'   : is_ot,
-            'is_pulang_awal': is_pulang_awal,
-            'waktu'         : localtime(absensi.waktu_pulang).strftime('%H:%M'),
-            'durasi'        : absensi.durasi_str,
-            'supervisor'    : qr_obj.supervisor.nama_lengkap or qr_obj.supervisor.username,
-        })
+    absensi.save(update_fields=[
+        'qr_pulang', 'waktu_pulang', 'lat_pulang', 'lon_pulang',
+        'status', 'is_overtime', 'overtime_status',
+        'overtime_reviewed_by', 'overtime_reviewed_at',
+        'diubah_pada',
+    ])
 
 
 @staff_required

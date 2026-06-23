@@ -35,7 +35,7 @@ LOCKED_STATUSES = {Status.MENUNGGU_APPROVAL, Status.SELESAI}
 
 # Batas keterlambatan yang mewajibkan keterangan (dalam menit)
 OVERTIME_WAJIB_KETERANGAN = 60  # 1 jam
-
+OVERTIME_NOTIF_MENIT = 20
 
 # ---------------------------------------------------------------------------
 # Domain helpers
@@ -258,7 +258,7 @@ def _handle_foto_after(request: HttpRequest, item: ItemKegiatan) -> HttpResponse
 
     approver = "customer" if item.is_insidental else "supervisor"
 
-    if overtime_menit > 0:
+    if overtime_menit >= OVERTIME_NOTIF_MENIT:
         selisih_td = timedelta(minutes=overtime_menit)
         messages.warning(
             request,
@@ -270,7 +270,6 @@ def _handle_foto_after(request: HttpRequest, item: ItemKegiatan) -> HttpResponse
             request,
             f"✓ Foto selesai disimpan. Pekerjaan menunggu approval dari {approver}.",
         )
-
     return redirect("staff_item_list")
 
 

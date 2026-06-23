@@ -14,6 +14,7 @@
 </div>
 
 <!-- ── HEADER ── -->
+<!-- ── HEADER ── -->
 <div class="detail-header">
     <div class="detail-header-left">
         <div class="detail-breadcrumb">
@@ -21,6 +22,7 @@
             <i class="bi bi-chevron-right"></i>
             <span>Detail Laporan</span>
         </div>
+    
         <h1 class="detail-title">{{ laporan.nama_laporan }}</h1>
         <div class="detail-subtitle">
             {% if laporan.status == 'draft' %}
@@ -34,38 +36,75 @@
         </div>
     </div>
 
-        <div class="detail-header-actions">
+    <div class="detail-header-actions">
         <a href="{% url 'supervisor_laporan_list' %}" class="action-btn btn-back">
             <i class="bi bi-arrow-left"></i> Kembali
         </a>
 
-            {% if laporan.status == 'selesai' %}
-            <a href="{% url 'download_laporan_bulanan' laporan.perusahaan.id laporan.tanggal_laporan.year laporan.tanggal_laporan.month laporan.jenis_jasa.id 'pdf' %}" 
-            class="action-btn btn-pdf" target="_blank">
-                <i class="bi bi-file-earmark-pdf"></i> Download PDF
-            </a>
-            <a href="{% url 'download_laporan_bulanan' laporan.perusahaan.id laporan.tanggal_laporan.year laporan.tanggal_laporan.month laporan.jenis_jasa.id 'word' %}" 
-            class="action-btn btn-word" target="_blank">
-                <i class="bi bi-file-earmark-word"></i> Download Word
-            </a>
-            {% endif %}
+        {% if laporan.status == 'selesai' %}
+        <a href="{% url 'download_laporan_bulanan' laporan.perusahaan.id laporan.tanggal_laporan.year laporan.tanggal_laporan.month laporan.jenis_jasa.id 'pdf' %}" 
+        class="action-btn btn-pdf" target="_blank">
+            <i class="bi bi-file-earmark-pdf"></i> Download PDF
+        </a>
+        <a href="{% url 'download_laporan_bulanan' laporan.perusahaan.id laporan.tanggal_laporan.year laporan.tanggal_laporan.month laporan.jenis_jasa.id 'word' %}" 
+        class="action-btn btn-word" target="_blank">
+            <i class="bi bi-file-earmark-word"></i> Download Word
+        </a>
+        {% endif %}
 
-            {% if laporan.status == 'draft' %}
-                <a href="{% url 'supervisor_laporan_edit' laporan.pk %}" class="action-btn btn-edit">
-                    <i class="bi bi-pencil"></i> Edit
-                </a>
-                <a href="{% url 'supervisor_item_create' laporan.pk %}" class="action-btn btn-add">
-                    <i class="bi bi-plus-lg"></i> Tambah Item
-                </a>
-                <button class="action-btn btn-delete" data-bs-toggle="modal" data-bs-target="#modalHapus">
-                    <i class="bi bi-trash"></i> Hapus
-                </button>
-                <button class="action-btn btn-send" id="btnSelesaikanLaporan" data-pk="{{ laporan.pk }}"
-                    {% if not laporan.semua_item_approved %}disabled title="Masih ada item belum di-approve customer"{% endif %}>
-                    <i class="bi bi-check-circle"></i> Tandai Selesai
-                </button>
-            {% endif %}
+        {% if laporan.status == 'draft' %}
+            <a href="{% url 'supervisor_laporan_edit' laporan.pk %}" class="action-btn btn-edit">
+                <i class="bi bi-pencil"></i> Edit
+            </a>
+            <a href="{% url 'supervisor_item_create' laporan.pk %}" class="action-btn btn-add">
+                <i class="bi bi-plus-lg"></i> Tambah Item
+            </a>
+            <button class="action-btn btn-delete" data-bs-toggle="modal" data-bs-target="#modalHapus">
+                <i class="bi bi-trash"></i> Hapus
+            </button>
+            <button class="action-btn btn-send" id="btnSelesaikanLaporan" data-pk="{{ laporan.pk }}"
+                {% if not laporan.semua_item_approved %}disabled title="Masih ada item belum di-approve customer"{% endif %}>
+                <i class="bi bi-check-circle"></i> Tandai Selesai
+            </button>
+        {% endif %}
     </div>
+</div>{# ✅ tutup .detail-header di sini, sebelum bulk toolbar #}
+
+<!-- ── BULK APPROVE TOOLBAR ── -->
+{% if laporan.status == 'draft' %}
+<div id="bulkToolbar" style="display:none;align-items:center;gap:10px;
+     background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);
+     border-radius:10px;padding:10px 16px;margin-bottom:16px;flex-wrap:wrap">
+    <span id="bulkCount" style="font-size:13px;color:#a5b4fc;font-weight:600">0 item dipilih</span>
+    <button id="btnBulkApprove"
+            style="padding:7px 16px;border-radius:8px;border:none;
+                   background:linear-gradient(135deg,#22c55e,#16a34a);
+                   color:#fff;font-size:13px;font-weight:600;cursor:pointer;
+                   display:inline-flex;align-items:center;gap:6px">
+        <i class="bi bi-check-circle-fill"></i> Setujui yang Dipilih
+    </button>
+    <button id="btnBatalPilih"
+            style="padding:7px 14px;border-radius:8px;font-size:13px;font-weight:500;
+                   background:transparent;border:1px solid rgba(148,163,184,.2);
+                   color:#94a3b8;cursor:pointer">
+        Batal
+    </button>
+</div>
+{% endif %}
+
+<div class="items-section-header">
+    <div style="display:flex;align-items:center;gap:10px">
+        <div class="items-section-title">Item Kegiatan</div>
+        {% if laporan.status == 'draft' %}
+        <button id="btnModeSelect"
+                style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;
+                       background:rgba(99,102,241,.12);color:#a5b4fc;
+                       border:1px solid rgba(99,102,241,.25);cursor:pointer">
+            ☑ Pilih untuk Approve
+        </button>
+        {% endif %}
+    </div>
+    <span class="items-count-badge">{{ item_list|length }} item</span>
 </div>
 
 <!-- ── STATS ── -->
@@ -176,183 +215,187 @@
 {% regroup item_list by sub_area as sub_area_groups %}
 
 {% for sub_area_group in sub_area_groups %}
-{% if sub_area_group.grouper %}
-<div class="sub-area-section-header">
-    <div class="sub-area-title">{{ sub_area_group.grouper.nama_sub_area }}</div>
-    <span class="sub-area-count-badge">{{ sub_area_group.list|length }} item</span>
-</div>
-{% else %}
-<div class="sub-area-section-header">
-    <div class="sub-area-title">Tanpa Sub Area</div>
-    <span class="sub-area-count-badge">{{ sub_area_group.list|length }} item</span>
-</div>
-{% endif %}
-
-<div class="items-grid">
-    {% for item in sub_area_group.list %}
-    <div class="item-card">
-
-        <!-- Photos -->
-        {% if item.foto_on_progress or item.foto_after %}
-            <div class="item-photos">
-                {% if item.foto_on_progress and item.foto_after %}
-                    <!-- Both photos -->
-                    <div class="item-photo-slot">
-                        <img src="{{ item.foto_on_progress.url }}" alt="On Progress">
-                        <span class="item-photo-label label-progress">On Progress</span>
-                        <a href="{{ item.foto_on_progress.url }}" class="photo-expand-btn lightbox-trigger" data-src="{{ item.foto_on_progress.url }}">
-                            <i class="bi bi-arrows-fullscreen"></i>
-                        </a>
-                    </div>
-                    <div class="item-photo-slot">
-                        <img src="{{ item.foto_after.url }}" alt="After">
-                        <span class="item-photo-label label-after">After</span>
-                        <a href="{{ item.foto_after.url }}" class="photo-expand-btn lightbox-trigger" data-src="{{ item.foto_after.url }}">
-                            <i class="bi bi-arrows-fullscreen"></i>
-                        </a>
-                    </div>
-                {% elif item.foto_on_progress %}
-                    <div class="item-photo-slot single">
-                        <img src="{{ item.foto_on_progress.url }}" alt="On Progress">
-                        <span class="item-photo-label label-progress">On Progress</span>
-                        <a href="{{ item.foto_on_progress.url }}" class="photo-expand-btn lightbox-trigger" data-src="{{ item.foto_on_progress.url }}">
-                            <i class="bi bi-arrows-fullscreen"></i>
-                        </a>
-                    </div>
-                {% elif item.foto_after %}
-                    <div class="item-photo-slot single">
-                        <img src="{{ item.foto_after.url }}" alt="After">
-                        <span class="item-photo-label label-after">After</span>
-                        <a href="{{ item.foto_after.url }}" class="photo-expand-btn lightbox-trigger" data-src="{{ item.foto_after.url }}">
-                            <i class="bi bi-arrows-fullscreen"></i>
-                        </a>
-                    </div>
-                {% endif %}
-            </div>
-        {% else %}
-            <!-- No photos placeholder -->
-            <div class="item-photos">
-                <div class="item-photo-slot-empty single">
-                    <i class="bi bi-image"></i>
-                    <span>Belum ada foto</span>
-                </div>
-            </div>
-        {% endif %}
-
-        <!-- Body -->
-        <div class="item-card-body">
-            <div class="item-card-top">
-                <div class="item-name">
-                    {{ item.nama_item }}
-                </div>
-                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
-                    {% if item.is_insidental %}
-                        <span class="item-insidental-badge"><i class="bi bi-lightning-charge-fill"></i> Insidental</span>
-                    {% endif %}
-                    {% if item.status == 'terjadwal' %}
-                        <span class="item-status ist-terjadwal">Terjadwal</span>
-                    {% elif item.status == 'on_progress' %}
-                        <span class="item-status ist-progress">On Progress</span>
-                    {% elif item.status == 'menunggu_approval' %}
-                        <span class="item-status ist-waiting">⏳ Menunggu Approval</span>
-                    {% elif item.status == 'selesai' %}
-                        <span class="item-status ist-selesai">Selesai</span>
-                    {% endif %}
-                </div>
-            </div>
-
-            <div class="item-meta">
-                 {% for staff_member in item.staff.all %}
-                    <span class="meta-pill">Petugas: {{ staff_member.nama_lengkap }}</span>
-                {% endfor %}
-                {% if item.task %}
-                    <span class="meta-pill"> Pekerjaan: {{ item.task.nama_task }}</span>
-                {% endif %}
-                {% if item.sub_area %}
-                    <span class="meta-pill">Lokasi: {{ item.sub_area.nama_sub_area }}</span>
-                {% endif %}
-                {% if item.tanggal %}
-                    <span class="meta-pill">Tanggal:{{ item.tanggal|date:"d/m/Y" }}</span>
-                {% endif %}
-                {% if item.jam_mulai %}
-                    <span class="meta-pill">Jam Pekerjaan: {{ item.jam_mulai }} – {{ item.jam_selesai|default:"?" }}</span>
-                {% endif %}
-               
-            </div>
-
-            {% if item.catatan_staff %}
-                <div class="item-catatan">
-                    <i class="bi bi-chat-left-text" style="margin-right:4px;"></i>{{ item.catatan_staff }}
-                </div>
-            {% endif %}
-
-            <!-- ── Tombol Approve (supervisor: hanya item non-insidental menunggu_approval) ── -->
-            {% if item.status == 'menunggu_approval' and not item.is_insidental %}
-            <div style="padding:8px 16px 12px;border-top:1px solid rgba(148,163,184,0.08);">
-                <div style="font-size:12px;color:#94a3b8;margin-bottom:8px;">
-                    <i class="bi bi-info-circle"></i>
-                    Periksa foto hasil pekerjaan sebelum memberikan persetujuan.
-                </div>
-                <button type="button"
-                        class="btn-approve-spv"
-                        data-item-pk="{{ item.pk }}"
-                        data-item-name="{{ item.nama_item }}"
-                        style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;">
-                    <i class="bi bi-check-circle-fill"></i> Setujui Pekerjaan
-                </button>
-            </div>
-            {% elif item.status == 'menunggu_approval' and item.is_insidental %}
-            <div style="padding:8px 16px 12px;border-top:1px solid rgba(148,163,184,0.08);">
-                <div style="font-size:12px;color:#94a3b8;">
-                    <i class="bi bi-lightning-charge-fill" style="color:#fbbf24;"></i>
-                    Item insidental — menunggu persetujuan Customer.
-                </div>
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- Footer actions (only draft) -->
-        {% if laporan.status == 'draft' %}
-        <div class="item-card-footer">
-            <a href="{% url 'supervisor_item_edit' item.pk %}" class="item-action-btn iab-edit">
-                <i class="bi bi-pencil"></i> Edit
-            </a>
-            <button class="item-action-btn iab-delete"
-                data-bs-toggle="modal"
-                data-bs-target="#modalHapusItem{{ item.pk }}">
-                <i class="bi bi-trash"></i> Hapus
-            </button>
-        </div>
-        {% endif %}
+    {% if sub_area_group.grouper %}
+    <div class="sub-area-section-header">
+        <div class="sub-area-title">{{ sub_area_group.grouper.nama_sub_area }}</div>
+        <span class="sub-area-count-badge">{{ sub_area_group.list|length }} item</span>
     </div>
-
-    <!-- Modal Hapus Item -->
-    {% if laporan.status == 'draft' %}
-    <div class="modal fade" id="modalHapusItem{{ item.pk }}" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered" style="max-width:400px;">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h6 class="modal-title">Hapus Item</h6>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    Yakin ingin menghapus item <strong style="color:var(--clr-text-primary);">{{ item.nama_item }}</strong>?
-                    <br><small style="color:#f87171;">Tindakan ini tidak dapat dibatalkan.</small>
-                </div>
-                <div class="modal-footer" style="gap:8px;">
-                    <button type="button" class="action-btn btn-back btn-sm" data-bs-dismiss="modal">Batal</button>
-                    <form method="post" action="{% url 'supervisor_item_delete' item.pk %}">
-                        {% csrf_token %}
-                        <button type="submit" class="action-btn btn-delete">Ya, Hapus</button>
-                    </form>
-                </div>
-            </div>
-        </div>
+    {% else %}
+    <div class="sub-area-section-header">
+        <div class="sub-area-title">Tanpa Sub Area</div>
+        <span class="sub-area-count-badge">{{ sub_area_group.list|length }} item</span>
     </div>
     {% endif %}
-    {% endfor %}
-</div>
-{% endfor %}
+
+    <div class="items-grid">
+        {% for item in sub_area_group.list %}
+        <div class="item-card"
+             {% if item.status == 'menunggu_approval' and not item.is_insidental %}
+             data-approvable="true" data-item-pk="{{ item.pk }}"
+             {% endif %}>
+
+            <!-- Photos -->
+            {% if item.foto_on_progress or item.foto_after %}
+                <div class="item-photos">
+                    {% if item.foto_on_progress and item.foto_after %}
+                        <div class="item-photo-slot">
+                            <img src="{{ item.foto_on_progress.url }}" alt="On Progress">
+                            <span class="item-photo-label label-progress">On Progress</span>
+                            <a href="{{ item.foto_on_progress.url }}" class="photo-expand-btn lightbox-trigger" data-src="{{ item.foto_on_progress.url }}">
+                                <i class="bi bi-arrows-fullscreen"></i>
+                            </a>
+                        </div>
+                        <div class="item-photo-slot">
+                            <img src="{{ item.foto_after.url }}" alt="After">
+                            <span class="item-photo-label label-after">After</span>
+                            <a href="{{ item.foto_after.url }}" class="photo-expand-btn lightbox-trigger" data-src="{{ item.foto_after.url }}">
+                                <i class="bi bi-arrows-fullscreen"></i>
+                            </a>
+                        </div>
+                    {% elif item.foto_on_progress %}
+                        <div class="item-photo-slot single">
+                            <img src="{{ item.foto_on_progress.url }}" alt="On Progress">
+                            <span class="item-photo-label label-progress">On Progress</span>
+                            <a href="{{ item.foto_on_progress.url }}" class="photo-expand-btn lightbox-trigger" data-src="{{ item.foto_on_progress.url }}">
+                                <i class="bi bi-arrows-fullscreen"></i>
+                            </a>
+                        </div>
+                    {% elif item.foto_after %}
+                        <div class="item-photo-slot single">
+                            <img src="{{ item.foto_after.url }}" alt="After">
+                            <span class="item-photo-label label-after">After</span>
+                            <a href="{{ item.foto_after.url }}" class="photo-expand-btn lightbox-trigger" data-src="{{ item.foto_after.url }}">
+                                <i class="bi bi-arrows-fullscreen"></i>
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            {% else %}
+                <div class="item-photos">
+                    <div class="item-photo-slot-empty single">
+                        <i class="bi bi-image"></i>
+                        <span>Belum ada foto</span>
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Body -->
+            <div class="item-card-body">
+                <div class="item-card-top">
+                    <div class="item-name">{{ item.nama_item }}</div>
+                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
+                        {% if item.is_insidental %}
+                            <span class="item-insidental-badge"><i class="bi bi-lightning-charge-fill"></i> Insidental</span>
+                        {% endif %}
+                        {% if item.status == 'terjadwal' %}
+                            <span class="item-status ist-terjadwal">Terjadwal</span>
+                        {% elif item.status == 'on_progress' %}
+                            <span class="item-status ist-progress">On Progress</span>
+                        {% elif item.status == 'menunggu_approval' %}
+                            <span class="item-status ist-waiting">⏳ Menunggu Approval</span>
+                        {% elif item.status == 'selesai' %}
+                            <span class="item-status ist-selesai">Selesai</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="item-meta">
+                    {% for staff_member in item.staff.all %}
+                        <span class="meta-pill">Petugas: {{ staff_member.nama_lengkap }}</span>
+                    {% endfor %}
+                    {% if item.task %}
+                        <span class="meta-pill">Pekerjaan: {{ item.task.nama_task }}</span>
+                    {% endif %}
+                    {% if item.sub_area %}
+                        <span class="meta-pill">Lokasi: {{ item.sub_area.nama_sub_area }}</span>
+                    {% endif %}
+                    {% if item.tanggal %}
+                        <span class="meta-pill">Tanggal: {{ item.tanggal|date:"d/m/Y" }}</span>
+                    {% endif %}
+                    {% if item.jam_mulai %}
+                        <span class="meta-pill">Jam Pekerjaan: {{ item.jam_mulai }} – {{ item.jam_selesai|default:"?" }}</span>
+                    {% endif %}
+                </div>
+
+                {% if item.catatan_staff %}
+                    <div class="item-catatan">
+                        <i class="bi bi-chat-left-text" style="margin-right:4px;"></i>{{ item.catatan_staff }}
+                    </div>
+                {% endif %}
+
+                <!-- Tombol Approve (supervisor: hanya item non-insidental menunggu_approval) -->
+                {% if item.status == 'menunggu_approval' and not item.is_insidental %}
+                <div style="padding:8px 16px 12px;border-top:1px solid rgba(148,163,184,0.08);">
+                    <div style="font-size:12px;color:#94a3b8;margin-bottom:8px;">
+                        <i class="bi bi-info-circle"></i>
+                        Periksa foto hasil pekerjaan sebelum memberikan persetujuan.
+                    </div>
+                    <button type="button"
+                            class="btn-approve-spv"
+                            data-item-pk="{{ item.pk }}"
+                            data-item-name="{{ item.nama_item }}"
+                            style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;">
+                        <i class="bi bi-check-circle-fill"></i> Setujui Pekerjaan
+                    </button>
+                </div>
+                {% elif item.status == 'menunggu_approval' and item.is_insidental %}
+                <div style="padding:8px 16px 12px;border-top:1px solid rgba(148,163,184,0.08);">
+                    <div style="font-size:12px;color:#94a3b8;">
+                        <i class="bi bi-lightning-charge-fill" style="color:#fbbf24;"></i>
+                        Item insidental — menunggu persetujuan Customer.
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Footer actions + select overlay + modal (only draft) -->
+            {% if laporan.status == 'draft' %}
+            <div class="item-card-footer">
+                <a href="{% url 'supervisor_item_edit' item.pk %}" class="item-action-btn iab-edit">
+                    <i class="bi bi-pencil"></i> Edit
+                </a>
+                <button class="item-action-btn iab-delete"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalHapusItem{{ item.pk }}">
+                    <i class="bi bi-trash"></i> Hapus
+                </button>
+            </div>
+
+            {% if item.status == 'menunggu_approval' and not item.is_insidental %}
+            <div class="select-overlay" style="display:none;position:absolute;top:10px;left:10px;z-index:10">
+                <input type="checkbox" class="item-checkbox" data-pk="{{ item.pk }}"
+                       style="width:20px;height:20px;cursor:pointer;accent-color:#6366f1">
+            </div>
+            {% endif %}
+
+            <!-- Modal Hapus Item -->
+            <div class="modal fade" id="modalHapusItem{{ item.pk }}" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered" style="max-width:400px;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h6 class="modal-title">Hapus Item</h6>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            Yakin ingin menghapus item <strong style="color:var(--clr-text-primary);">{{ item.nama_item }}</strong>?
+                            <br><small style="color:#f87171;">Tindakan ini tidak dapat dibatalkan.</small>
+                        </div>
+                        <div class="modal-footer" style="gap:8px;">
+                            <button type="button" class="action-btn btn-back btn-sm" data-bs-dismiss="modal">Batal</button>
+                            <form method="post" action="{% url 'supervisor_item_delete' item.pk %}">
+                                {% csrf_token %}
+                                <button type="submit" class="action-btn btn-delete">Ya, Hapus</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}{# end if laporan.status == 'draft' #}
+
+        </div>{# end .item-card #}
+        {% endfor %}{# end for item #}
+    </div>{# end .items-grid #}
+{% endfor %}{# end for sub_area_group #}
 
 {% if not item_list %}
 <div class="empty-items">
@@ -477,6 +520,101 @@ if (approveSpvModalEl) {
             approveSpvItemName.textContent = name;
             approveSpvForm.action = '/supervisor/item/' + pk + '/approve/';
             approveSpvModal.show();
+        });
+    });
+}
+
+// ── Bulk Approve ──────────────────────────────────────────────────────────
+const btnModeSelect  = document.getElementById('btnModeSelect');
+const bulkToolbar    = document.getElementById('bulkToolbar');
+const bulkCount      = document.getElementById('bulkCount');
+const btnBulkApprove = document.getElementById('btnBulkApprove');
+const btnBatalPilih  = document.getElementById('btnBatalPilih');
+
+let modeSelect = false;
+
+function updateBulkCount() {
+    const checked = document.querySelectorAll('.item-checkbox:checked');
+    bulkCount.textContent = `${checked.length} item dipilih`;
+    btnBulkApprove.disabled = checked.length === 0;
+}
+
+function masukModeSelect() {
+    modeSelect = true;
+    bulkToolbar.style.display = 'flex';
+    btnModeSelect.style.display = 'none';
+    document.querySelectorAll('.select-overlay').forEach(el => el.style.display = 'block');
+    document.querySelectorAll('.item-card:not([data-approvable])').forEach(el => {
+        el.style.opacity = '0.4';
+    });
+}
+
+function keluarModeSelect() {
+    modeSelect = false;
+    bulkToolbar.style.display = 'none';
+    btnModeSelect.style.display = '';
+    document.querySelectorAll('.select-overlay').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.item-checkbox').forEach(cb => cb.checked = false);
+    document.querySelectorAll('.item-card').forEach(el => el.style.opacity = '');
+    updateBulkCount();
+}
+
+if (btnModeSelect) {
+    btnModeSelect.addEventListener('click', masukModeSelect);
+}
+
+if (btnBatalPilih) {
+    btnBatalPilih.addEventListener('click', keluarModeSelect);
+}
+
+document.addEventListener('change', e => {
+    if (e.target.classList.contains('item-checkbox')) {
+        updateBulkCount();
+    }
+});
+
+// klik card = toggle checkbox
+document.querySelectorAll('.item-card[data-approvable]').forEach(card => {
+    card.addEventListener('click', function(e) {
+        if (!modeSelect) return;
+        if (e.target.closest('button, a, input')) return;
+        const cb = this.querySelector('.item-checkbox');
+        if (cb) { cb.checked = !cb.checked; updateBulkCount(); }
+    });
+});
+
+if (btnBulkApprove) {
+    btnBulkApprove.addEventListener('click', function() {
+        const pks = [...document.querySelectorAll('.item-checkbox:checked')]
+            .map(cb => parseInt(cb.dataset.pk));
+
+        if (!pks.length) return;
+        if (!confirm(`Setujui ${pks.length} item sekaligus?`)) return;
+
+        btnBulkApprove.disabled = true;
+        btnBulkApprove.innerHTML = '<i class="bi bi-hourglass-split"></i> Memproses...';
+
+        fetch("{% url 'supervisor_item_bulk_approve' laporan.pk %}", {
+            method : 'POST',
+            headers: {
+                'Content-Type'    : 'application/json',
+                'X-CSRFToken'     : document.querySelector('[name=csrfmiddlewaretoken]').value,
+            },
+            body: JSON.stringify({ item_pks: pks }),
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.message);
+                btnBulkApprove.disabled = false;
+                btnBulkApprove.innerHTML = '<i class="bi bi-check-circle-fill"></i> Setujui yang Dipilih';
+            }
+        })
+        .catch(() => {
+            alert('Terjadi kesalahan jaringan.');
+            btnBulkApprove.disabled = false;
         });
     });
 }

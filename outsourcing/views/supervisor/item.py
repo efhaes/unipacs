@@ -4,6 +4,7 @@ from outsourcing.decorators import supervisor_or_kepala_required
 from outsourcing.models import LaporanKegiatan, ItemKegiatan
 from outsourcing.forms.laporan_forms import ItemKegiatanForm
 import json
+from django.http import JsonResponse
 
 
 def _get_supervisor(request):
@@ -132,3 +133,37 @@ def item_approve(request, pk):
         return redirect('supervisor_laporan_detail', pk=item.laporan_id)
 
     return redirect('supervisor_laporan_detail', pk=item.laporan_id)
+
+@supervisor_or_kepala_required
+def item_bulk_approve(request, laporan_pk):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Method tidak diizinkan.'}, status=405)
+
+    supervisor = _get_supervisor(request)
+    laporan    = get_object_or_404(LaporanKegiatan, pk=laporan_pk, supervisor=supervisor)
+
+    import json
+    try:
+        body    = json.loads(request.body)
+        item_pks = body.get('item_pks', [])
+    except (json.JSONDecodeError, AttributeError):
+        return JsonResponse({'success': False, 'message': 'Data tidak valid.'}, status=400)
+
+    if not item_pks:
+        return JsonResponse({'success': False, 'message': 'Tidak ada item yang dipilih.'}, status=400)
+
+    from outsourcing.models import ItemKegiatan
+    items = ItemKegiatan.objects.filter(
+        pk__in=item_pks,
+        laporan=laporan,
+        status='menunggu_approval',
+        is_insidental=False,
+    )
+
+    jumlah = items.update(status='selesai')
+
+    return JsonResponse({
+        'success': True,
+        'jumlah' : jumlah,
+        'message': f'{jumlah} item berhasil disetujui.',
+    })

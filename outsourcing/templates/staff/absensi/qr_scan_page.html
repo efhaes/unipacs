@@ -1,0 +1,90 @@
+{% extends 'staff/base_staff.html' %}
+{% block title %}Scan QR Absensi{% endblock %}
+
+{% block extra_css %}
+<style>
+#qr-reader { border: 2px solid var(--clr-accent); border-radius: var(--radius-lg); overflow: visible; }
+#qr-reader video { width: 100% !important; height: auto !important; }
+#qr-reader__dashboard_section_swapLink { display: none !important; }
+#qr-reader__dashboard button {
+  background: var(--clr-accent) !important; color:#fff !important; border:none !important;
+  border-radius:8px !important; padding:8px 20px !important; font-size:13px !important;
+}
+.https-warning {
+  display:none; background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.35);
+  border-radius:8px; padding:12px 16px; margin-bottom:16px; color:#fca5a5; font-size:13px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-content">
+  <div class="row justify-content-center">
+    <div class="col-lg-8 col-md-10">
+      <div class="text-center mb-4">
+        <h5 style="color:var(--clr-text-primary);font-weight:600">Scan QR Absensi</h5>
+        <p style="color:var(--clr-text-muted);font-size:14px">Arahkan kamera ke QR code dari supervisor</p>
+      </div>
+
+      <div class="card" style="background:rgba(255,255,255,0.02);border:1px solid var(--clr-border)">
+        <div class="card-body p-4">
+          <div class="https-warning" id="httpsWarning">
+            ⚠️ Kamera tidak bisa dibuka di HTTP. Gunakan HTTPS atau localhost.
+          </div>
+          <div id="qr-reader"></div>
+
+          <div class="text-center mt-3">
+            <p style="color:var(--clr-text-muted);font-size:12px">atau masukkan token QR manual:</p>
+            <div class="d-flex gap-2 justify-content-center">
+              <input type="text" id="tokenInput" class="form-control" placeholder="Token QR"
+                     style="max-width:300px;background:rgba(255,255,255,0.05);border:1px solid var(--clr-border);color:#fff">
+              <button type="button" id="submitToken" class="btn" style="background:var(--clr-accent);color:#fff;border:none">Proses</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+    document.getElementById('httpsWarning').style.display = 'block';
+  }
+
+  const LANDING_TEMPLATE = "{% url 'staff_qr_scan_landing' '00000000-0000-0000-0000-000000000000' %}";
+
+  function gotoLanding(token) {
+    window.location.href = LANDING_TEMPLATE.replace('00000000-0000-0000-0000-000000000000', token);
+  }
+
+  function extractToken(raw) {
+    try {
+      const url = new URL(raw);
+      const parts = url.pathname.split('/').filter(Boolean);
+      return parts[parts.length - 1];
+    } catch { return raw.trim(); }
+  }
+
+  const scanner = new Html5QrcodeScanner('qr-reader', {
+    fps: 10, qrbox: { width: 250, height: 250 }, rememberLastUsedCamera: true,
+  });
+  scanner.render((decodedText) => {
+    scanner.clear().catch(() => {});
+    gotoLanding(extractToken(decodedText));
+  }, () => {});
+
+  document.getElementById('submitToken').addEventListener('click', () => {
+    const token = document.getElementById('tokenInput').value.trim();
+    if (token) gotoLanding(token);
+  });
+  document.getElementById('tokenInput').addEventListener('keypress', e => {
+    if (e.key === 'Enter') document.getElementById('submitToken').click();
+  });
+});
+</script>
+{% endblock %}

@@ -10,4 +10,14 @@ from .area_kerja import (
 )
 from .task import task_list, task_create, task_edit, task_delete
 from .customer import customer_create
-from .absensi import qr_list, absensi_detail,absensi_rekap,izin_review,lokasi_edit,lokasi_list,lokasi_tambah,lokasi_hapus,lokasi_toggle_aktif,lokasi_detail_json,supervisor_absensi_staff_detail
+from .absensi import (
+    qr_list, qr_kelola, qr_toggle_aktif,
+    absensi_rekap, absensi_detail,
+    supervisor_absensi_staff_detail,
+    overtime_list, overtime_klasifikasi, api_update_overtime_status,
+    keterangan_list, keterangan_review,
+    izin_review,
+    jadwal_list, jadwal_tambah, jadwal_edit, jadwal_hapus, jadwal_toggle_aktif,
+    lokasi_list, lokasi_tambah, lokasi_edit, lokasi_hapus,
+    lokasi_toggle_aktif, lokasi_detail_json,
+)

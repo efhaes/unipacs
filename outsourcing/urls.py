@@ -1,3 +1,4 @@
+from outsourcing.views.staff.absensi import absensi_konfirmasi
 from outsourcing.views.supervisor import customer_create
 from django.urls import path
 from outsourcing import views
@@ -27,22 +28,29 @@ from outsourcing.views.supervisor import (
     laporan_list, laporan_create, laporan_detail, laporan_edit, laporan_delete,
     laporan_selesai, laporan_toggle_aktif,
     item_create, item_edit, item_delete, item_approve as supervisor_item_approve,
-    staff_list as spv_staff_list,   # ← ganti alias ini
+    staff_list as spv_staff_list,
     staff_create, staff_edit, staff_toggle_aktif, staff_delete,
     subarea_list, subarea_create, subarea_edit, subarea_delete,
     task_list, task_create, task_edit, task_delete,
-    qr_list, qr_generate, qr_nonaktifkan,
-    absensi_rekap, absensi_detail, supervisor_absensi_staff_detail, izin_review,
-    lokasi_list, lokasi_tambah, lokasi_hapus, lokasi_toggle_aktif, lokasi_detail_json,
+    qr_list, qr_kelola, qr_toggle_aktif,
+    absensi_rekap, absensi_detail, supervisor_absensi_staff_detail,
+    izin_review,
+    overtime_list, overtime_klasifikasi, api_update_overtime_status,   # ← ini yang error
+    keterangan_list, keterangan_review,
+    jadwal_list, jadwal_tambah, jadwal_edit, jadwal_hapus, jadwal_toggle_aktif,
+    lokasi_list, lokasi_tambah, lokasi_edit, lokasi_hapus,
+    lokasi_toggle_aktif, lokasi_detail_json,
 )
 
 from outsourcing.views.staff import (
     dashboard_view as staff_dashboard,
-    item_list, item_update, item_update_jam,item_create_insidental,
-    qr_scan_landing, qr_scan_page, absensi_riwayat, api_today_status,izin_submit,
-    izin_detail,
-    izin_batal,item_upload_foto_tambahan, item_hapus_foto_tambahan,
+    item_list, item_update, item_update_jam, item_create_insidental,
+    qr_scan_landing, qr_scan_page, absensi_proses, absensi_konfirmasi,
+    absensi_riwayat, api_today_status, izin_submit,
+    izin_detail, izin_batal,
+    item_upload_foto_tambahan, item_hapus_foto_tambahan,
 )
+
 from outsourcing.views.customer import (
     dashboard_view as customer_dashboard,
     laporan_list as customer_laporan_list,
@@ -139,11 +147,15 @@ urlpatterns = [
     path('supervisor/task/<int:pk>/delete/', task_delete, name='supervisor_task_delete'),
     path('supervisor/customer/tambah/', customer_create, name='supervisor_customer_create'),
     path('supervisor/qr/', qr_list, name='supervisor_qr_list'),
-    path('supervisor/qr/generate/', qr_generate, name='supervisor_qr_generate'),
-    path('supervisor/qr/<int:pk>/nonaktifkan/', qr_nonaktifkan, name='supervisor_qr_nonaktifkan'),
+    path('supervisor/qr/kelola/', qr_kelola, name='supervisor_qr_kelola'),
+    path('supervisor/qr/<int:pk>/toggle/', qr_toggle_aktif, name='supervisor_qr_toggle_aktif'),
     path('supervisor/absensi/rekap/', absensi_rekap, name='supervisor_absensi_rekap'),
     path('supervisor/absensi/staff/<int:staff_pk>/', supervisor_absensi_staff_detail, name='supervisor_absensi_staff_detail'),
     path('supervisor/absensi/<int:pk>/', absensi_detail, name='supervisor_absensi_detail'),
+    path('supervisor/jadwal/', jadwal_list, name='supervisor_jadwal_list'),
+    path('supervisor/jadwal/tambah/', jadwal_tambah, name='supervisor_jadwal_tambah'),
+    path('supervisor/jadwal/<int:pk>/edit/', jadwal_edit, name='supervisor_jadwal_edit'),
+    path('supervisor/jadwal/<int:pk>/hapus/', jadwal_hapus, name='supervisor_jadwal_hapus'),
     path('supervisor/laporan/bulanan/<int:perusahaan_id>/<int:tahun>/<int:bulan>/<int:jenis_jasa_id>/download/<str:format>/',generate_laporan_bulanan, name='download_laporan_bulanan'),
     path('supervisor/absensi/<int:pk>/overtime-status/',api_update_overtime_status,name='supervisor_absensi_overtime_status',),
     path('supervisor/absensi/izin/<int:pk>/review/', izin_review, name='supervisor_izin_review'),
@@ -161,11 +173,16 @@ urlpatterns = [
     path('staff/item/<int:pk>/update/', item_update, name='staff_item_update'),
     path('staff/item/update-jam/', item_update_jam, name='staff_item_update_jam'),
     path('absensi/scan/<uuid:token>/', qr_scan_landing, name='staff_qr_scan_landing'),
+    path('absensi/scan/<uuid:token>/proses/', absensi_proses, name='staff_absensi_proses'),
+    path('absensi/scan/<uuid:token>/konfirmasi/', absensi_konfirmasi, name='staff_absensi_konfirmasi'),
     path('staff/absensi/scan/', qr_scan_page, name='staff_absensi_scan'),
     path('staff/absensi/riwayat/', absensi_riwayat, name='staff_absensi_riwayat'),
     path('staff/api/today-status/', api_today_status, name='staff_api_today_status'),
+
     path('staff/izin/ajukan/',         izin_submit, name='staff_izin_submit'),
     path('staff/izin/<int:pk>/batal/', izin_batal,  name='staff_izin_batal'),
+    path('staff/item/<int:pk>/foto-tambahan/',         item_upload_foto_tambahan, name='staff_item_foto_tambahan'),
+    path('staff/item/foto-tambahan/<int:foto_pk>/hapus/', item_hapus_foto_tambahan,  name='staff_item_foto_tambahan_hapus'),
     path('staff/item/<int:pk>/foto-tambahan/',         item_upload_foto_tambahan, name='staff_item_foto_tambahan'),
     path('staff/item/foto-tambahan/<int:foto_pk>/hapus/', item_hapus_foto_tambahan,  name='staff_item_foto_tambahan_hapus'),
     path("staff/item/<int:pk>/foto-tambahan/ajax/",item_upload_foto_tambahan_ajax,name="staff_item_foto_tambahan_ajax"),

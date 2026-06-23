@@ -38,15 +38,9 @@ from outsourcing.forms import (
 )
 
 
-"""
-views/absensi_helpers.py
-=========================
-Helper internal yang dipakai bersama oleh:
-  - absensi_staff.py       (view-view untuk staff: scan, proses masuk/pulang)
-  - absensi_supervisor.py  (view-view untuk supervisor/kepala: QR, rekap, izin, dll)
-
-Tidak ada view di file ini — pure helper functions.
-"""
+# ─────────────────────────────────────────────
+# Helpers
+# ─────────────────────────────────────────────
 
 import qrcode
 import io
@@ -129,7 +123,9 @@ def qr_kelola(request):
     POST AJAX → update lokasi QR yang sudah ada, atau create get_or_create.
     """
     supervisor = get_supervisor(request)
-
+    print(f'\n🔍 QR_KELOLA DEBUG:')
+    print(f'   supervisor: {supervisor}')
+    print(f'   supervisor.id: {supervisor.id}')
     # Ambil QR permanen (paling 1 per tipe per supervisor)
     qr_masuk  = QRAbsensi.objects.filter(supervisor=supervisor, tipe=QRTypeChoices.MASUK).first()
     qr_pulang = QRAbsensi.objects.filter(supervisor=supervisor, tipe=QRTypeChoices.PULANG).first()
@@ -137,7 +133,9 @@ def qr_kelola(request):
     lokasi_list = LokasiAbsensi.objects.filter(
         supervisor=supervisor, is_active=True,
     ).order_by('nama')
-
+    print(f'   lokasi_list.count(): {lokasi_list.count()}')
+    for lok in lokasi_list:
+        print(f'      - {lok.nama} (supervisor_id={lok.supervisor_id}, is_active={lok.is_active})')
     # ── AJAX POST — update lokasi ─────────────────────────
     if request.method == 'POST' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         lokasi_id = request.POST.get('lokasi_id', '').strip()
@@ -841,8 +839,12 @@ def lokasi_list(request):
     supervisor = get_supervisor(request)
     lokasi_qs  = LokasiAbsensi.objects.filter(supervisor=supervisor).order_by('nama')
     return render(request, 'supervisor/lokasi/list.html', {
-        'lokasi_qs' : lokasi_qs,
-        'supervisor': supervisor,
+        'lokasi_qs'                   : lokasi_qs,
+        'supervisor'                  : supervisor,
+        'koordinat_decimal_places'    : KOORDINAT_DECIMAL_PLACES,
+        'radius_min'                  : RADIUS_MIN,
+        'radius_max'                  : RADIUS_MAX,
+        'radius_default'              : RADIUS_DEFAULT,
     })
 
 

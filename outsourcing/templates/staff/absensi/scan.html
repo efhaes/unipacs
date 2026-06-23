@@ -1,0 +1,225 @@
+{% extends 'staff/base_staff.html' %}
+{% block title %}Absensi{% endblock %}
+
+{% block extra_css %}
+<style>
+.absen-modal .modal-content {
+  background: rgba(12,17,32,0.55); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255,255,255,0.12); border-radius: var(--radius-lg); color:#fff;
+}
+.absen-modal .modal-header, .absen-modal .modal-footer { border-color: rgba(255,255,255,0.10); }
+.absen-modal textarea.form-control {
+  background: rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.18); color:#fff; border-radius:8px;
+}
+.btn-absen-primary { background: var(--clr-accent); color:#fff !important; border:none; }
+.btn-absen-primary:disabled { opacity:.5; }
+.gps-status-bar {
+  display:flex; align-items:center; gap:8px; padding:8px 14px; border-radius:8px; font-size:12px; margin-bottom:14px;
+}
+.gps-status-bar.acquiring { background:rgba(99,102,241,.10); border:1px solid rgba(99,102,241,.25); color:#a5b4fc; }
+.gps-status-bar.ready     { background:rgba(34,197,94,.10);  border:1px solid rgba(34,197,94,.25);  color:#4ade80; }
+.gps-status-bar.error     { background:rgba(239,68,68,.10);  border:1px solid rgba(239,68,68,.25);  color:#fca5a5; }
+.gps-dot { width:8px;height:8px;border-radius:50%; }
+.gps-dot.acquiring { background:#a5b4fc; }
+.gps-dot.ready { background:#4ade80; }
+.gps-dot.error { background:#f87171; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-content">
+  <div class="row justify-content-center">
+    <div class="col-lg-7 col-md-9">
+
+      <div class="text-center mb-4">
+        <h5 style="color:var(--clr-text-primary);font-weight:600">
+          {{ qr.get_tipe_display }}{% if qr.lokasi %} — {{ qr.lokasi.nama }}{% endif %}
+        </h5>
+        <p style="color:var(--clr-text-muted);font-size:13px">
+          {% if jadwal %}Jadwal hari ini: {{ jam_masuk_str }} – {{ jam_pulang_str }}{% else %}Tidak ada jadwal resmi hari ini{% endif %}
+        </p>
+      </div>
+
+      <div class="card" style="background:rgba(255,255,255,0.02);border:1px solid var(--clr-border)">
+        <div class="card-body p-4">
+
+          {% if blokir_pesan %}
+            <div class="text-center" style="color:var(--clr-text-muted)">
+              ⚠️ {{ blokir_pesan }}
+            </div>
+          {% else %}
+            <div class="gps-status-bar acquiring" id="gpsStatusBar">
+              <div class="gps-dot acquiring" id="gpsDot"></div>
+              <span id="gpsStatusText">Mendapatkan lokasi GPS…</span>
+            </div>
+
+            <button type="button" id="btnAbsen" class="btn btn-absen-primary w-100 py-2">
+              <span class="btn-label">
+                {% if qr.tipe == 'masuk' %}Absen Masuk Sekarang{% else %}Absen Pulang Sekarang{% endif %}
+              </span>
+              <span class="spinner-border spinner-border-sm ms-1 d-none"></span>
+            </button>
+          {% endif %}
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ALASAN (terlambat / pulang cepat / luar jadwal) -->
+<div class="modal fade absen-modal" id="modalAlasan" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title" id="modalAlasanTitle">Isi Keterangan</h6>
+      </div>
+      <div class="modal-body">
+        <p id="modalAlasanPesan" style="color:rgba(255,255,255,.65);font-size:13px"></p>
+        <textarea id="alasanInput" class="form-control" rows="4" placeholder="Jelaskan alasanmu..."></textarea>
+        <div id="alasanError" style="color:#fca5a5;font-size:12px;margin-top:6px;display:none"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="alasanBatal">Batal</button>
+        <button type="button" class="btn btn-absen-primary" id="alasanSubmit">
+          <span class="btn-label">Kirim</span>
+          <span class="spinner-border spinner-border-sm ms-1 d-none"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL HASIL -->
+<div class="modal fade absen-modal" id="modalHasil" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title" id="modalHasilTitle"></h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="modalHasilBody"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const URL_PROSES      = "{% url 'staff_absensi_proses' qr.token %}";
+  const URL_KONFIRMASI  = "{% url 'staff_absensi_konfirmasi' qr.token %}";
+
+  let cachedLat = null, cachedLon = null;
+  let pendingTipe = null;
+  let pendingSelisih = 0;
+
+  const btnAbsen = document.getElementById('btnAbsen');
+  const modalAlasan = new bootstrap.Modal(document.getElementById('modalAlasan'));
+  const modalHasil  = new bootstrap.Modal(document.getElementById('modalHasil'));
+
+  function setGps(state, text) {
+    document.getElementById('gpsStatusBar').className = `gps-status-bar ${state}`;
+    document.getElementById('gpsDot').className = `gps-dot ${state}`;
+    document.getElementById('gpsStatusText').textContent = text;
+  }
+
+  function acquireLocation() {
+    if (!navigator.geolocation) { setGps('error', 'GPS tidak didukung'); return; }
+    setGps('acquiring', 'Mendapatkan lokasi GPS…');
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        cachedLat = pos.coords.latitude; cachedLon = pos.coords.longitude;
+        setGps('ready', `Lokasi didapat (±${Math.round(pos.coords.accuracy)}m)`);
+      },
+      err => setGps('error', err.code === 1 ? 'Izin lokasi ditolak' : 'Gagal mendapatkan lokasi'),
+      { timeout: 10000, maximumAge: 60000, enableHighAccuracy: true }
+    );
+  }
+  if (btnAbsen) acquireLocation();
+
+  function getCsrf() {
+    return document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='))?.split('=')[1] || '';
+  }
+
+  function postForm(url, fields) {
+    const fd = new FormData();
+    Object.entries(fields).forEach(([k, v]) => fd.append(k, v));
+    fd.append('csrfmiddlewaretoken', getCsrf());
+    if (cachedLat) fd.append('lat', cachedLat);
+    if (cachedLon) fd.append('lon', cachedLon);
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      body: fd,
+    }).then(r => r.json());
+  }
+
+  function setBtnLoading(btn, loading) {
+    btn.disabled = loading;
+    btn.querySelector('.spinner-border')?.classList.toggle('d-none', !loading);
+  }
+
+  function showHasil(ok, data) {
+    document.getElementById('modalHasilTitle').textContent = ok ? '✅ Berhasil' : '❌ Gagal';
+    let msg = data.pesan || data.error || 'Terjadi kesalahan.';
+    if (data.errors) msg = Object.values(data.errors).flat().join(' ');
+    document.getElementById('modalHasilBody').innerHTML = `<p style="color:#fff;margin:0">${msg}</p>`;
+    modalHasil.show();
+    if (ok && data.redirect) {
+      setTimeout(() => { window.location.href = data.redirect; }, 1200);
+    }
+  }
+
+  function openAlasanModal(data) {
+    pendingTipe    = data.tipe_alasan;
+    pendingSelisih = data.selisih_menit || 0;
+    document.getElementById('modalAlasanPesan').textContent = data.pesan || '';
+    document.getElementById('alasanInput').value = '';
+    document.getElementById('alasanError').style.display = 'none';
+    modalAlasan.show();
+  }
+
+  btnAbsen?.addEventListener('click', function () {
+    setBtnLoading(this, true);
+    postForm(URL_PROSES, {}).then(data => {
+      setBtnLoading(this, false);
+      if (data.perlu_alasan) {
+        openAlasanModal(data);
+      } else {
+        showHasil(!!data.ok, data);
+      }
+    }).catch(() => {
+      setBtnLoading(this, false);
+      showHasil(false, { error: 'Terjadi kesalahan koneksi.' });
+    });
+  });
+
+  document.getElementById('alasanSubmit').addEventListener('click', function () {
+    const alasan = document.getElementById('alasanInput').value.trim();
+    const errEl  = document.getElementById('alasanError');
+    if (!alasan) {
+      errEl.textContent = 'Keterangan wajib diisi.';
+      errEl.style.display = 'block';
+      return;
+    }
+    errEl.style.display = 'none';
+    setBtnLoading(this, true);
+
+    postForm(URL_KONFIRMASI, {
+      tipe: pendingTipe,
+      alasan: alasan,
+      selisih_menit: pendingSelisih,
+    }).then(data => {
+      setBtnLoading(this, false);
+      modalAlasan.hide();
+      showHasil(!!data.ok, data);
+    }).catch(() => {
+      setBtnLoading(this, false);
+      modalAlasan.hide();
+      showHasil(false, { error: 'Terjadi kesalahan koneksi.' });
+    });
+  });
+});
+</script>
+{% endblock %}

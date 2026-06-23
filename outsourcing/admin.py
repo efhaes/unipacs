@@ -6,7 +6,7 @@ from outsourcing.models import (
     JenisJasa, Perusahaan, AreaKerja, SubArea,
     KepalaSupervisorJasa, SupervisorPerusahaan, StaffSupervisor,
     LaporanKegiatan, ItemKegiatan,
-    QRAbsensi, Absensi,
+    QRAbsensi, Absensi, LokasiAbsensi,
 )
 
 
@@ -202,30 +202,37 @@ class ItemKegiatanAdmin(admin.ModelAdmin):
 
         return format_html("{}", ' &nbsp; '.join(icons))
 
-
+@admin.register(LokasiAbsensi)
+class LokasiAbsensiAdmin(admin.ModelAdmin):
+    list_display  = ['nama', 'supervisor', 'radius_meter', 'is_active', 'diperbarui']
+    list_filter   = ['is_active']
+    search_fields = ['nama', 'supervisor__nama_lengkap', 'supervisor__username']
+    autocomplete_fields = ['supervisor']
+    readonly_fields = ['dibuat_pada', 'diperbarui']
+    ordering = ['nama']
+    
 # ============================================================
 # QR ABSENSI
 # ============================================================
 
 @admin.register(QRAbsensi)
 class QRAbsensiAdmin(admin.ModelAdmin):
-    list_display  = ['supervisor', 'tipe', 'tanggal', 'berlaku_hingga', 'is_active', 'dibuat_pada']
-    list_filter   = ['tipe', 'is_active', 'tanggal']
+    list_display  = ['supervisor', 'tipe', 'lokasi', 'is_active', 'dibuat_pada']
+    list_filter   = ['tipe', 'is_active']
     search_fields = ['supervisor__nama_lengkap', 'supervisor__username']
-    autocomplete_fields = ['supervisor']
-    readonly_fields = ['token', 'dibuat_pada']
-    ordering = ['-tanggal', 'tipe']
-    date_hierarchy = 'tanggal'
+    autocomplete_fields = ['supervisor', 'lokasi']
+    readonly_fields = ['token', 'dibuat_pada', 'diperbarui']
+    ordering = ['supervisor', 'tipe']
 
     fieldsets = (
         ('Info QR', {
-            'fields': ('supervisor', 'tipe', 'tanggal', 'token')
+            'fields': ('supervisor', 'tipe', 'lokasi', 'token')
         }),
-        ('Validitas', {
-            'fields': ('berlaku_hingga', 'jam_berlaku_mulai', 'is_active')
+        ('Status', {
+            'fields': ('is_active',)
         }),
         ('Timestamps', {
-            'fields': ('dibuat_pada',),
+            'fields': ('dibuat_pada', 'diperbarui'),
             'classes': ('collapse',),
         }),
     )

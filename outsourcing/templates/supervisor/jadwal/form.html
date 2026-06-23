@@ -1,0 +1,97 @@
+{% extends 'supervisor/base_supervisor.html' %}
+{% block title %}{% if mode == 'edit' %}Edit{% else %}Tambah{% endif %} Jadwal Kerja{% endblock %}
+
+{% block content %}
+<div class="page-content" style="max-width:480px">
+
+  <div class="d-flex align-items-center gap-3 mb-4">
+    <a href="{% url 'supervisor_jadwal_list' %}"
+       style="display:inline-flex;align-items:center;gap:5px;padding:7px 14px;
+              border-radius:10px;font-size:13px;font-weight:600;text-decoration:none;
+              border:1px solid var(--clr-border);color:var(--clr-text-muted)">
+      ← Kembali
+    </a>
+    <h5 style="font-weight:600;color:var(--clr-text-primary);margin:0">
+      {% if mode == 'edit' %}Edit Jadwal{% else %}Tambah Jadwal{% endif %}
+    </h5>
+  </div>
+
+  <div class="card" style="background:rgba(255,255,255,0.02);border:1px solid var(--clr-border)">
+    <div class="card-body" style="padding:24px">
+
+      {% if form.non_field_errors %}
+      <div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);
+                  border-radius:8px;padding:12px 16px;margin-bottom:16px;
+                  color:#f87171;font-size:13px">
+        {% for err in form.non_field_errors %}{{ err }}{% endfor %}
+      </div>
+      {% endif %}
+
+      <form method="post">
+        {% csrf_token %}
+
+        <!-- Hari -->
+        <div class="mb-4">
+          <label style="display:block;color:var(--clr-text-secondary);font-size:13px;
+                        font-weight:600;margin-bottom:8px">Hari</label>
+          {{ form.hari }}
+          {% if form.hari.errors %}
+          <div style="color:#f87171;font-size:12px;margin-top:4px">{{ form.hari.errors.0 }}</div>
+          {% endif %}
+        </div>
+
+        <!-- Jam Masuk & Pulang -->
+        <div class="row g-3 mb-4">
+          <div class="col-6">
+            <label style="display:block;color:var(--clr-text-secondary);font-size:13px;
+                          font-weight:600;margin-bottom:8px">Jam Masuk</label>
+            {{ form.jam_masuk }}
+            {% if form.jam_masuk.errors %}
+            <div style="color:#f87171;font-size:12px;margin-top:4px">{{ form.jam_masuk.errors.0 }}</div>
+            {% endif %}
+          </div>
+          <div class="col-6">
+            <label style="display:block;color:var(--clr-text-secondary);font-size:13px;
+                          font-weight:600;margin-bottom:8px">Jam Pulang</label>
+            {{ form.jam_pulang }}
+            {% if form.jam_pulang.errors %}
+            <div style="color:#f87171;font-size:12px;margin-top:4px">{{ form.jam_pulang.errors.0 }}</div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Aktif -->
+        <div class="mb-4 d-flex align-items-center gap-3">
+          {{ form.is_active }}
+          <label style="color:var(--clr-text-secondary);font-size:13px;font-weight:500;margin:0">
+            Jadwal Aktif
+          </label>
+        </div>
+
+        <!-- Info -->
+        <div style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);
+                    border-radius:8px;padding:12px 16px;margin-bottom:20px;
+                    font-size:12px;color:rgba(165,180,252,.8)">
+          ℹ️ Overtime dihitung jika staff pulang <strong>≥60 menit</strong> setelah jam pulang.
+          Terlambat dihitung jika scan masuk setelah jam masuk.
+        </div>
+
+        <div class="d-flex gap-3">
+          <button type="submit"
+                  style="background:var(--clr-accent);color:#fff;border:none;
+                         padding:10px 24px;border-radius:8px;font-size:13px;font-weight:600">
+            {% if mode == 'edit' %}Simpan Perubahan{% else %}Tambah Jadwal{% endif %}
+          </button>
+          <a href="{% url 'supervisor_jadwal_list' %}"
+             style="padding:10px 16px;border-radius:8px;font-size:13px;font-weight:500;
+                    background:rgba(255,255,255,.05);color:var(--clr-text-muted);
+                    border:1px solid var(--clr-border);text-decoration:none">
+            Batal
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

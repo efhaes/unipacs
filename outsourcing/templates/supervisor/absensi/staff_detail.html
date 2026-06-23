@@ -449,8 +449,8 @@
             <div class="ket-text">{{ row.libur_nama }}</div>
         {% elif row.absensi and row.absensi.catatan %}
             <div class="ket-text">{{ row.absensi.catatan|truncatechars:35 }}</div>
-        {% elif row.absensi and row.absensi.izin_pulang_awal %}
-            <div class="ket-text" style="color:#fbbf24;">Izin pulang awal</div>
+        {% elif row.absensi and row.absensi.keterangan_set.exists %}
+            <div class="ket-text" style="color:#fbbf24;">Ada keterangan</div>
         {% elif row.absensi and row.absensi.is_overtime %}
             <div class="ket-text" style="color:#fb923c;">Overtime</div>
         {% elif row.izin %}

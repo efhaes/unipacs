@@ -82,13 +82,13 @@ def qr_scan_landing(request, token):
         'lokasi'        : qr.lokasi,
         'blokir_pesan'  : blokir_pesan,
     }
-    return render(request, 'absensi/scan.html', context)
+    return render(request, 'staff/absensi/scan.html', context)
 
 
 @staff_required
 def qr_scan_page(request):
     """Halaman kamera — decode token QR lalu redirect ke qr_scan_landing."""
-    return render(request, 'absensi/qr_scan_page.html')
+    return render(request, 'staff/absensi/qr_scan_page.html')
 
 
 # ─────────────────────────────────────────────
